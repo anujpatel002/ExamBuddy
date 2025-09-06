@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+body {
+  @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300;
+}
+
+/* --- ADD THIS ENTIRE BLOCK --- */
+/* This is a direct override to fix the summary text color in dark mode. */
+.dark .prose {
+  color: theme('colors.slate.300');
+}
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4,
+.dark .prose strong {
+  color: theme('colors.slate.100');
+}
+/* ----------------------------- */
