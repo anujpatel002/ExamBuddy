@@ -25,12 +25,21 @@ const protect = asyncHandler(async (req, res, next) => {
 });
 
 const admin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'sub-admin')) {
     next();
   } else {
-    res.status(403); // Forbidden
+    res.status(403);
     throw new Error('Not authorized as an admin');
   }
 };
 
-export { protect, admin };
+const superAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    res.status(403);
+    throw new Error('Not authorized as super admin');
+  }
+};
+
+export { protect, admin, superAdmin };

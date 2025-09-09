@@ -1,108 +1,220 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
+import { FiUsers, FiPlus, FiArrowRight, FiRefreshCw } from 'react-icons/fi';
 
 interface Quiz {
   _id: string;
   title: string;
+  questions: any[];
+  note: {
+    subject: {
+      _id: string;
+      name: string;
+    };
+  };
+}
+
+interface Subject {
+  _id: string;
+  name: string;
 }
 
 export default function StudyRoomHub() {
   const [joinCode, setJoinCode] = useState('');
-  const [myQuizzes, setMyQuizzes] = useState<Quiz[]>([]);
+  const [customRoomCode, setCustomRoomCode] = useState('');
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState('');
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [selectedQuiz, setSelectedQuiz] = useState('');
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { checkFeatureAccess, getUpgradeMessage } = usePlanLimits();
 
   useEffect(() => {
-    const preselectedQuizId = searchParams.get('quizId');
+    fetchSubjects();
+  }, []);
 
-    const fetchQuizzes = async () => {
-      try {
-        const { data } = await api.get('/quizzes/my');
-        setMyQuizzes(data);
-        if (preselectedQuizId && data.some((q: Quiz) => q._id === preselectedQuizId)) {
-          setSelectedQuiz(preselectedQuizId);
-        } else if (data.length > 0) {
-          setSelectedQuiz(data[0]._id);
-        }
-      } catch (error) {
-        toast.error('Could not fetch your quizzes.');
-      }
-    };
-    if (user) {
-        fetchQuizzes();
+  useEffect(() => {
+    if (selectedSubject) {
+      fetchQuizzes(selectedSubject);
+    } else {
+      setQuizzes([]);
+      setSelectedQuiz('');
     }
-  }, [user, searchParams]);
-  
+  }, [selectedSubject]);
+
+  const fetchSubjects = async () => {
+    try {
+      const { data } = await api.get('/subjects');
+      setSubjects(data);
+    } catch (error) {
+      toast.error('Failed to fetch subjects');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchQuizzes = async (subjectId: string) => {
+    try {
+      const { data } = await api.get(`/quizzes/my?subject=${subjectId}`);
+      setQuizzes(data);
+      if (data.length > 0) {
+        setSelectedQuiz(data[0]._id);
+      } else {
+        setSelectedQuiz('');
+      }
+    } catch (error) {
+      toast.error('Failed to fetch quizzes');
+      setQuizzes([]);
+    }
+  };
+
+  const generateRoomCode = () => {
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    setCustomRoomCode(code);
+  };
+
   const handleJoinRoom = (e: React.FormEvent) => {
     e.preventDefault();
-    if (joinCode.trim()) {
-      router.push(`/study-room/${joinCode.trim()}`);
-    } else {
-      toast.error('Please enter a room code.');
+    if (!joinCode.trim()) {
+      toast.error('Please enter a room code');
+      return;
     }
+    router.push(`/study-room/${joinCode.trim().toUpperCase()}`);
   };
 
   const handleCreateRoom = () => {
-    if (!selectedQuiz) {
-        toast.error('Please select a quiz to start a study room.');
-        return;
+    if (!checkFeatureAccess('createStudyRoom')) {
+      toast.error(getUpgradeMessage('createStudyRoom'));
+      return;
     }
-    const newRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    router.push(`/study-room/${newRoomCode}?quizId=${selectedQuiz}&host=true`);
+    if (!selectedQuiz) {
+      toast.error('Please select a quiz first');
+      return;
+    }
+    const roomCode = customRoomCode || Math.random().toString(36).substring(2, 8).toUpperCase();
+    router.push(`/study-room/${roomCode}?quizId=${selectedQuiz}&host=true`);
   };
 
+  if (loading) {
+    return <div className="flex justify-center py-8">Loading...</div>;
+  }
+
   return (
-    <div>
-      <h1 className="text-3xl font-bold mb-8">Study Rooms</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-2xl font-semibold mb-4">Create a New Room</h2>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 md:space-y-8">
+      <div className="text-center">
+        <h1 className="text-2xl md:text-3xl font-bold mb-2">Study Rooms</h1>
+        <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">Create or join collaborative study sessions</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+        {/* Create Room */}
+        <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <FiPlus className="text-xl md:text-2xl text-green-500" />
+            <h2 className="text-lg md:text-xl font-semibold">Create New Room</h2>
+          </div>
+          
           <div className="space-y-4">
             <div>
-              <label htmlFor="quiz-select" className="block text-sm font-medium text-gray-700 mb-1">
-                Choose a quiz for the session:
-              </label>
-              {myQuizzes.length > 0 ? (
-                <select
-                  id="quiz-select"
-                  value={selectedQuiz}
-                  onChange={(e) => setSelectedQuiz(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  {myQuizzes.map((quiz) => (
-                    <option key={quiz._id} value={quiz._id}>
-                      {quiz.title}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="text-gray-500">You have no quizzes. Generate one from a note first!</p>
-              )}
+              <label className="block text-sm font-medium mb-2">Select Subject</label>
+              <select
+                value={selectedSubject}
+                onChange={(e) => setSelectedSubject(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
+              >
+                <option value="">Choose a subject...</option>
+                {subjects.map((subject) => (
+                  <option key={subject._id} value={subject._id}>
+                    {subject.name}
+                  </option>
+                ))}
+              </select>
             </div>
-            <Button onClick={handleCreateRoom} className="w-full" disabled={myQuizzes.length === 0}>
+            
+            {selectedSubject && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Select Quiz</label>
+                {quizzes.length > 0 ? (
+                  <select
+                    value={selectedQuiz}
+                    onChange={(e) => setSelectedQuiz(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
+                  >
+                    {quizzes.map((quiz) => (
+                      <option key={quiz._id} value={quiz._id}>
+                        {quiz.title} ({quiz.questions?.length || 0} questions)
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-gray-500 text-sm p-2 bg-gray-100 dark:bg-gray-700 rounded">No quizzes found for this subject</p>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Custom Room Code (Optional)</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter custom code"
+                  value={customRoomCode}
+                  onChange={(e) => setCustomRoomCode(e.target.value.toUpperCase())}
+                  maxLength={6}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
+                />
+                <Button onClick={generateRoomCode} variant="secondary" size="sm">
+                  <FiRefreshCw />
+                </Button>
+              </div>
+            </div>
+            
+            <Button 
+              onClick={handleCreateRoom} 
+              className="w-full bg-green-600 hover:bg-green-700"
+              disabled={!selectedQuiz || !checkFeatureAccess('createStudyRoom')}
+            >
+              <FiPlus className="mr-2" />
               Create Room
             </Button>
+            {!checkFeatureAccess('createStudyRoom') && (
+              <p className="text-sm text-yellow-600 dark:text-yellow-400 text-center">
+                {getUpgradeMessage('createStudyRoom')}
+              </p>
+            )}
           </div>
         </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-2xl font-semibold mb-4">Join an Existing Room</h2>
+
+        {/* Join Room */}
+        <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <FiUsers className="text-xl md:text-2xl text-blue-500" />
+            <h2 className="text-lg md:text-xl font-semibold">Join Existing Room</h2>
+          </div>
+          
           <form onSubmit={handleJoinRoom} className="space-y-4">
-            <Input
-              type="text"
-              placeholder="Enter Room Code"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            />
-            <Button type="submit" className="w-full">
+            <div>
+              <label className="block text-sm font-medium mb-2">Room Code</label>
+              <input
+                type="text"
+                placeholder="Enter 6-digit code"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                maxLength={6}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md text-center text-lg font-mono"
+              />
+            </div>
+            
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
+              <FiArrowRight className="mr-2" />
               Join Room
             </Button>
           </form>

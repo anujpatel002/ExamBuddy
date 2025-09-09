@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import Subject from '../models/subjectModel.js';
 import Note from '../models/noteModel.js';
+import { getPlanLimits } from '../middleware/planLimits.js';
 
 // @desc    Create a new subject
 // @route   POST /api/subjects
@@ -11,6 +12,16 @@ const createSubject = asyncHandler(async (req, res) => {
   if (!name || name.trim() === '') {
     res.status(400);
     throw new Error('Subject name cannot be empty.');
+  }
+
+  // Check plan limits
+  const userPlan = req.user.subscription?.plan || 'free';
+  const limits = getPlanLimits(userPlan);
+  const currentSubjectCount = await Subject.countDocuments({ user: req.user._id });
+  
+  if (limits.subjects !== -1 && currentSubjectCount >= limits.subjects) {
+    res.status(403);
+    throw new Error(`Subject limit reached. Upgrade your plan to create more than ${limits.subjects} subjects.`);
   }
 
   const subject = new Subject({

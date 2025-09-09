@@ -4,4 +4,9 @@ export interface User {
   email: string;
   role: 'student' | 'admin';
   token: string;
+  isVerified: boolean; // <-- ADD THIS LINE
+  subscription: {
+    plan: string;
+    status: string;
+  };
 }

@@ -9,9 +9,10 @@ import {
   deleteMultipleSubjects 
 } from '../controllers/subjectController.js';
 import { protect } from '../middleware/authMiddleware.js';
+import { validateSubject } from '../middleware/validation.js';
 
 router.route('/')
-  .post(protect, createSubject)
+  .post(protect, validateSubject, createSubject)
   .get(protect, getMySubjects)
   .delete(protect, deleteMultipleSubjects); // Handles deleting multiple subjects
 

@@ -24,12 +24,13 @@ export default function LoginPage() {
     }
   }, [user, router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
       const { data } = await api.post('/auth/login', { email, password });
-      login(data);
+      await login(data); // Pass the full user object
+      router.push('/dashboard');
       toast.success('Logged in successfully!');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Login failed');
@@ -47,8 +48,8 @@ export default function LoginPage() {
         <h2 className="text-2xl font-bold text-center mb-6 text-gray-900 dark:text-white">Login to ExamBuddy</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input 
-            type="email" 
-            placeholder="Your University Email" 
+            type="text" 
+            placeholder="Your Email" 
             value={email} 
             onChange={(e) => setEmail(e.target.value)} 
             required 

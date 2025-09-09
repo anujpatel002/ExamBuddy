@@ -1,23 +1,38 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// --- THIS IS THE GEMINI CLIENT ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-// --------------------------------
 
-const generateWithGemini = async (prompt) => {
+// Initialize the model for all tasks
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+// Helper function for AI generation
+const generateContent = async (prompt) => {
   try {
     const result = await model.generateContent(prompt);
     const response = await result.response;
     if (!response.text()) {
         console.error("AI Response blocked due to safety ratings. Response:", JSON.stringify(response, null, 2));
-        throw new Error("The generated content was blocked for safety reasons. Please try with different source material.");
+        throw new Error("The generated content was blocked for safety reasons.");
     }
     return response.text();
   } catch (error) {
     console.error('Error calling Gemini API:', error);
     throw new Error('Failed to generate content from AI service.');
   }
+};
+
+export const answerDoubt = async (context, question) => {
+    const prompt = `
+    **Primary Directive:** Your response MUST be in the same language as the user's question. Based ONLY on the "CONTEXT FROM NOTES" provided below, answer the user's question. If the answer is not in the context, say "I'm sorry, I can't find that information in your notes."
+
+    ---
+    CONTEXT FROM NOTES:
+    ${context}
+    ---
+    USER'S QUESTION:
+    "${question}"
+    `;
+    return await generateContent(prompt);
 };
 
 const cleanAndParseJson = (rawResponse) => {
@@ -36,67 +51,39 @@ const cleanAndParseJson = (rawResponse) => {
   return JSON.parse(jsonString);
 };
 
+// --- FEATURE ROUTING ---
+
 export const generateSummary = async (textContent) => {
   const prompt = `
   **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
-
   Act as an expert academic tutor. Summarize the text using appropriate formatting like headings, bullet points, and bold keywords.
-
   ---
   TEXT TO USE:
   "${textContent}"`;
-  return await generateWithGemini(prompt);
-};
-
-export const generateFlashcards = async (textContent, existingCount = 0) => {
-  const prompt = `
-  **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
-
-  Generate 5 unique question and answer pairs suitable for flashcards, different from the first ${existingCount} questions. Return the output as a valid JSON array of objects with "question" and "answer" keys. Do not wrap the JSON in markdown backticks.
-
-  ---
-  TEXT TO USE:
-  "${textContent}"`;
-  
-  const rawResponse = await generateWithGemini(prompt);
-  try {
-    return cleanAndParseJson(rawResponse);
-  } catch (error) {
-    console.error("Failed to parse flashcards JSON. Raw AI response:", rawResponse);
-    throw new Error("AI generated invalid flashcard format.");
-  }
+  return await generateContent(prompt);
 };
 
 export const generateMarkBasedQuestions = async (textContent, category = null, existingQuestions = []) => {
   const existingQuestionsString = existingQuestions.map(q => q.question).join('\n');
-  
-  // --- THE FULL PROMPT IS NOW RESTORED ---
   const prompt = category 
     ? `
-      **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below. Both questions and answers must be in that language.
-
+      **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
       Generate 2-3 new, unique questions for the "${category}" category. Do NOT repeat any of the following questions:
       ${existingQuestionsString}
-      
       Return the output as a valid JSON array of objects with "question" and "answer" keys. Do not wrap the JSON in markdown backticks.
-      
       ---
       TEXT TO USE:
       "${textContent}"
       `
     : `
-      **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below. All questions and answers for all categories must be in that language.
-
+      **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
       Act as an expert exam paper creator. Generate a set of questions categorized by marks.
-      
       Return the output as a single, valid JSON object with keys "oneMarker", "threeMarker", "fourMarker", and "fiveMarker". Each key should hold an array of objects with "question" and "answer" keys. Do not wrap the JSON in markdown backticks.
-      
       ---
       TEXT TO USE:
       "${textContent}"
       `;
-
-  const rawResponse = await generateWithGemini(prompt);
+  const rawResponse = await generateContent(prompt);
   try {
     return cleanAndParseJson(rawResponse);
   } catch (error) {
@@ -105,25 +92,54 @@ export const generateMarkBasedQuestions = async (textContent, category = null, e
   }
 };
 
-export const generateQuiz = async (textContent, questionCount = 5) => {
-    // --- THE FULL PROMPT IS NOW RESTORED ---
+export const generateMindMap = async (textContent) => {
+  const prompt = `
+  **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
+  Analyze the following text and represent its hierarchical structure as a nested JSON object suitable for a mind map. The root object must have a "name" and a "children" array. Each child object can also have a "name" and a "children" array. Keep the names concise.
+  Return ONLY the valid JSON object and nothing else. Do not wrap it in markdown.
+  ---
+  TEXT TO USE:
+  "${textContent}"`;
+  const rawResponse = await generateContent(prompt);
+  try {
+    return cleanAndParseJson(rawResponse);
+  } catch (error) {
+    console.error("Failed to parse mind map JSON. Raw AI response:", rawResponse);
+    throw new Error("AI generated invalid mind map format.");
+  }
+};
+
+export const extractTopics = async (textContent) => {
+  const prompt = `
+  Analyze the following text from a student's notes. Identify the top 5-7 most important, core concepts or topics. Rank them by importance from 1 (most important) to 7 (least important).
+  Return ONLY a valid JSON object with a single key "topics". The value should be an array of objects, where each object has a "topic" (string) and "importance" (number) key.
+  ---
+  TEXT TO ANALYZE:
+  "${textContent}"`;
+  
+  const rawResponse = await generateContent(prompt);
+  try {
+    return cleanAndParseJson(rawResponse);
+  } catch (error) {
+    console.error("Failed to parse topics JSON:", error);
+    throw new Error("AI generated invalid topic format.");
+  }
+};
+
+export const generateQuestionsForTopic = async (textContent, topic) => {
     const prompt = `
-    **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below. All questions, options, and answers must be in that language.
-
-    Create a quiz with exactly ${questionCount} multiple-choice questions (MCQs) and 2 descriptive questions.
-    
-    Return the output as a single valid JSON object with keys "mcqs" and "descriptive". Do not wrap the JSON in markdown backticks.
-
+    **Primary Directive:** Your response MUST be in the same language as the provided text context.
+    Act as an expert exam paper creator. Based on the provided text context, generate 3 exam-style questions specifically about the topic: **"${topic}"**. Create one question for each category: 1 marker, 3 markers, and 5 markers.
+    Return ONLY a valid JSON array of objects. Each object must have a "question" (string), "answer" (string), and "marks" (number) key.
     ---
-    TEXT TO USE:
-    "${textContent}"
-    `;
-    const rawResponse = await generateWithGemini(prompt);
+    TEXT CONTEXT:
+    "${textContent}"`;
+    const rawResponse = await generateContent(prompt);
     try {
         return cleanAndParseJson(rawResponse);
     } catch (error) {
-        console.error("Failed to parse quiz JSON. Raw AI response:", rawResponse);
-        throw new Error("AI generated invalid quiz format.");
+        console.error(`Failed to parse questions for topic ${topic}:`, error);
+        throw new Error(`AI generated invalid question format for ${topic}.`);
     }
 };
 
@@ -131,10 +147,58 @@ export const generateTitle = async (textContent) => {
   const truncatedText = textContent.substring(0, 500);
   const prompt = `
   **Primary Directive:** Analyze the following text and suggest a short, descriptive title for it (5-10 words maximum). Your response must be only the title text, with no extra words or quotation marks.
-
   ---
   TEXT TO ANALYZE:
   "${truncatedText}"`;
+  return await generateContent(prompt);
+};
+
+export const generateFlashcards = async (textContent, existingCount = 0) => {
+  const prompt = `
+  **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
+  Generate 5 unique question and answer pairs suitable for flashcards, different from the first ${existingCount} questions. Return the output as a valid JSON array of objects with "question" and "answer" keys. Do not wrap the JSON in markdown backticks.
+  ---
+  TEXT TO USE:
+  "${textContent}"`;
   
-  return await generateWithGemini(prompt);
+  const rawResponse = await generateContent(prompt);
+  try {
+    return cleanAndParseJson(rawResponse);
+  } catch (error) {
+    console.error("Failed to parse flashcards JSON. Raw AI response:", rawResponse);
+    throw new Error("AI generated invalid flashcard format.");
+  }
+};
+
+export const generateQuiz = async (textContent, questionCount = 5) => {
+    const prompt = `
+    **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
+    Create a quiz with exactly ${questionCount} multiple-choice questions (MCQs) and 2 descriptive questions.
+    
+    For MCQs, return JSON with this EXACT structure:
+    {
+      "mcqs": [
+        {
+          "question": "Question text?",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "correctAnswer": "Option A"
+        }
+      ],
+      "descriptive": [
+        {"question": "Descriptive question text?"}
+      ]
+    }
+    
+    CRITICAL: correctAnswer must be EXACTLY one of the options.
+    ---
+    TEXT TO USE:
+    "${textContent}"
+    `;
+    const rawResponse = await generateContent(prompt);
+    try {
+        return cleanAndParseJson(rawResponse);
+    } catch (error) {
+        console.error("Failed to parse quiz JSON. Raw AI response:", rawResponse);
+        throw new Error("AI generated invalid quiz format.");
+    }
 };

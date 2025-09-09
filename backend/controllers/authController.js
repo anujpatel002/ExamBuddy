@@ -1,90 +1,133 @@
 import asyncHandler from 'express-async-handler';
 import User from '../models/userModel.js';
 import generateToken from '../utils/generateToken.js';
+import sendEmail from '../utils/sendEmail.js';
+import crypto from 'crypto';
 
-// @desc    Register a new user
-// @route   POST /api/auth/register
-// @access  Public
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
-
-  if (!name || !email || !password) {
-    res.status(400);
-    throw new Error('Please fill in all fields.');
-  }
-
-  const emailRegex = /^\d{2}(mca|bca|mscit|bscit)\d+@charusat\.edu\.in$/i;
-
-  if (!emailRegex.test(email)) {
-    res.status(400);
-    throw new Error('Invalid email format. Please use your official university ID (e.g., 25mca100@charusat.edu.in).');
+  
+  if (!email || !email.includes('@')) {
+    res.status(400); throw new Error('Please provide a valid email address.');
   }
 
   const userExists = await User.findOne({ email: email.toLowerCase() });
-
   if (userExists) {
-    res.status(400);
-    throw new Error('A user with this email already exists.');
+    res.status(400); throw new Error('A user with this email already exists.');
   }
 
-  const user = await User.create({
-    name,
-    email: email.toLowerCase(),
-    password,
-  });
+  const user = await User.create({ name, email: email.toLowerCase(), password });
 
   if (user) {
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      token: generateToken(user._id),
-    });
+    const verificationToken = user.createEmailVerificationToken();
+    user.lastVerificationEmailSent = new Date();
+    await user.save({ validateBeforeSave: false });
+
+    const verificationURL = `${process.env.CLIENT_URL}/verify-email/${verificationToken}`;
+    const message = `Welcome to ExamBuddy! Please verify your email by clicking this link: ${verificationURL}`;
+
+    try {
+      await sendEmail({ email: user.email, subject: 'ExamBuddy Email Verification', message });
+      res.status(201).json({ message: 'Registration successful! Please check your email to verify your account.' });
+    } catch (err) {
+      console.error(err);
+      res.status(500); throw new Error('Email could not be sent.');
+    }
   } else {
-    res.status(400);
-    throw new Error('Invalid user data');
+    res.status(400); throw new Error('Invalid user data');
   }
 });
 
-// @desc    Auth user & get token (Login)
-// @route   POST /api/auth/login
-// @access  Public
+const verifyEmail = asyncHandler(async (req, res) => {
+    const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
+    const user = await User.findOne({ emailVerificationToken: hashedToken });
+
+    if (!user) {
+        res.status(400); throw new Error('Invalid or expired token.');
+    }
+
+    user.isVerified = true;
+    user.emailVerificationToken = undefined;
+    await user.save();
+
+    res.status(200).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isVerified: user.isVerified,
+        subscription: user.subscription,
+        usage: user.usage,
+        token: generateToken(user._id),
+    });
+});
+
 const authUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email: email.toLowerCase() });
 
-  if (user && (await user.matchPassword(password))) {
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      token: generateToken(user._id),
-    });
-  } else {
+  if (!user || !(await user.matchPassword(password))) {
     res.status(401);
     throw new Error('Invalid email or password');
   }
+
+  if (!user.isVerified) {
+    const fiveMinutes = 5 * 60 * 1000;
+    const lastSent = user.lastVerificationEmailSent?.getTime() || 0;
+    
+    if (Date.now() - lastSent < fiveMinutes) {
+      res.status(429);
+      throw new Error('A verification email was recently sent. Please check your inbox or wait a few minutes.');
+    }
+
+    const verificationToken = user.createEmailVerificationToken();
+    user.lastVerificationEmailSent = new Date();
+    await user.save({ validateBeforeSave: false });
+
+    const verificationURL = `${process.env.CLIENT_URL}/verify-email/${verificationToken}`;
+    const message = `You recently attempted to log in. Please verify your email by clicking this link: ${verificationURL}`;
+
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: 'ExamBuddy Email Verification',
+        message,
+      });
+      res.status(403);
+      throw new Error('Please verify your email. A new verification link has been sent to your inbox.');
+    } catch (err) {
+      res.status(500);
+      throw new Error('Email could not be sent. Please try again later.');
+    }
+  }
+
+  res.json({
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    isVerified: user.isVerified,
+    subscription: user.subscription,
+    usage: user.usage,
+    token: generateToken(user._id),
+  });
 });
 
-// @desc    Get user profile
-// @route   GET /api/auth/profile
-// @access  Private
 const getUserProfile = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id);
-
     if (user) {
         res.json({
             _id: user._id,
             name: user.name,
             email: user.email,
             role: user.role,
+            isVerified: user.isVerified,
+            subscription: user.subscription,
+            usage: user.usage,
         });
     } else {
-        res.status(404);
-        throw new Error('User not found');
+        res.status(404); throw new Error('User not found');
     }
 });
 
-export { registerUser, authUser, getUserProfile };
+export { registerUser, authUser, verifyEmail, getUserProfile };

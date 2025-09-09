@@ -20,9 +20,28 @@ const getQuizById = asyncHandler(async (req, res) => {
 // @route   GET /api/quizzes/my
 // @access  Private
 const getMyQuizzes = asyncHandler(async (req, res) => {
-    const quizzes = await Quiz.find({ createdBy: req.user._id })
-                              .populate('note', 'title')
-                              .sort({ createdAt: -1 });
+    const { subject } = req.query;
+    
+    let query = { createdBy: req.user._id };
+    
+    if (subject) {
+        // Find notes that belong to the specified subject
+        const Note = (await import('../models/noteModel.js')).default;
+        const notes = await Note.find({ subject, user: req.user._id }).select('_id');
+        const noteIds = notes.map(note => note._id);
+        query.note = { $in: noteIds };
+    }
+    
+    const quizzes = await Quiz.find(query)
+        .populate({
+            path: 'note',
+            select: 'title subject',
+            populate: {
+                path: 'subject',
+                select: 'name'
+            }
+        })
+        .sort({ createdAt: -1 });
 
     // Add question count to each quiz object
     const quizzesWithCount = quizzes.map(quiz => ({
