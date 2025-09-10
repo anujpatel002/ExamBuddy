@@ -34,7 +34,7 @@
     "morgan": "^1.10.1",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^7.0.6",
-    "pdfjs-dist": "^5.4.149",
+    "pdf-parse": "^1.1.1",
     "pptx2json": "^0.0.10",
     "razorpay": "^2.9.6",
     "socket.io": "^4.7.5",

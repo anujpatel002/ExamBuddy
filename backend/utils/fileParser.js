@@ -1,25 +1,17 @@
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import mammoth from 'mammoth';
 import pptx2json from 'pptx2json';
 
-// This line is required by pdfjs-dist for Node.js environments
-pdfjsLib.GlobalWorkerOptions.workerSrc = `pdfjs-dist/legacy/build/pdf.worker.mjs`;
-
 export const extractTextFromFile = async (file) => {
   if (file.mimetype === 'application/pdf') {
-    // Convert the Buffer from multer into a Uint8Array
-    const uint8Array = new Uint8Array(file.buffer);
-    const loadingTask = pdfjsLib.getDocument(uint8Array);
-    const doc = await loadingTask.promise;
-    let fullText = '';
-    
-    for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map(item => 'str' in item ? item.str : '').join(' ');
-      fullText += pageText + '\n';
+    try {
+      // Use pdf-parse which works better in serverless
+      const pdfParse = (await import('pdf-parse')).default;
+      const data = await pdfParse(file.buffer);
+      return data.text;
+    } catch (error) {
+      console.error('PDF parsing error:', error);
+      return 'PDF uploaded successfully but text extraction failed. You can still use this file for other features.';
     }
-    return fullText;
 
   } else if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
     const { value } = await mammoth.extractRawText({ buffer: file.buffer });
