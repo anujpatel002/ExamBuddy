@@ -1,7 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 dotenv.config();
-import { validateEnvironment } from './config/validateEnv.js';
+import { validateEnvironment } from '../config/validateEnv.js';
 
 // Validate environment variables before starting
 validateEnvironment();
@@ -10,23 +10,23 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 
-import connectDB from './config/db.js';
-import { notFound, errorHandler } from './middleware/errorMiddleware.js';
+import connectDB from '../config/db.js';
+import { notFound, errorHandler } from '../middleware/errorMiddleware.js';
 
-import authRoutes from './routes/authRoutes.js';
-import noteRoutes from './routes/noteRoutes.js';
-import subjectRoutes from './routes/subjectRoutes.js';
-import aiRoutes from './routes/aiRoutes.js';
-import quizRoutes from './routes/quizRoutes.js';
-import adminRoutes from './routes/adminRoutes.js';
-import paymentRoutes from './routes/paymentRoutes.js';
-import questionBankRoutes from './routes/questionBankRoutes.js';
-import studyRoomRoutes from './routes/studyRoomRoutes.js';
-import initializeSocket from './socket/socketHandler.js';
-import doubtSolverRoutes from './routes/doubtSolverRoutes.js';
-import gamificationRoutes from './routes/gamificationRoutes.js';
-import healthRoutes from './routes/healthRoutes.js';
-import securityHeaders from './middleware/securityHeaders.js'; 
+import authRoutes from '../routes/authRoutes.js';
+import noteRoutes from '../routes/noteRoutes.js';
+import subjectRoutes from '../routes/subjectRoutes.js';
+import aiRoutes from '../routes/aiRoutes.js';
+import quizRoutes from '../routes/quizRoutes.js';
+import adminRoutes from '../routes/adminRoutes.js';
+import paymentRoutes from '../routes/paymentRoutes.js';
+import questionBankRoutes from '../routes/questionBankRoutes.js';
+import studyRoomRoutes from '../routes/studyRoomRoutes.js';
+import initializeSocket from '../socket/socketHandler.js';
+import doubtSolverRoutes from '../routes/doubtSolverRoutes.js';
+import gamificationRoutes from '../routes/gamificationRoutes.js';
+import healthRoutes from '../routes/healthRoutes.js';
+import securityHeaders from '../middleware/securityHeaders.js'; 
 
 connectDB();
 const app = express();
