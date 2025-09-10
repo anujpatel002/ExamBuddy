@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "api/**/*.js": {
-      "maxDuration": 30
-    }
-  },
   "env": {
     "DISABLE_PDF_PROCESSING": "true"
   }
