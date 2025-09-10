@@ -7,12 +7,17 @@ const api = axios.create({
 // Interceptor to add the token to every request
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
-    const userInfoString = localStorage.getItem('userInfo');
-    if (userInfoString) {
-      const userInfo = JSON.parse(userInfoString);
-      if (userInfo && userInfo.token) {
-        config.headers.Authorization = `Bearer ${userInfo.token}`;
+    try {
+      const userInfoString = localStorage.getItem('userInfo');
+      if (userInfoString) {
+        const userInfo = JSON.parse(userInfoString);
+        if (userInfo && userInfo.token) {
+          config.headers.Authorization = `Bearer ${userInfo.token}`;
+        }
       }
+    } catch (error) {
+      console.error('Error parsing user info from localStorage:', error);
+      localStorage.removeItem('userInfo');
     }
   }
   return config;

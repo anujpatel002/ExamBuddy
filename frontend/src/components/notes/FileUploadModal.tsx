@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
@@ -7,25 +7,28 @@ import Modal from '@/components/ui/Modal';
 import { FiUpload, FiX } from 'react-icons/fi';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 
-interface UploadNoteModalProps {
+interface FileUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onNoteUploaded: () => void;
-  subjectId: string;
+  targetId: string;
   currentNoteCount?: number;
 }
 
-export default function UploadNoteModal(props: UploadNoteModalProps) {
-  const { isOpen, onClose, onNoteUploaded, subjectId, currentNoteCount = 0 } = props;
+export default function FileUploadModal(props: FileUploadModalProps) {
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const { limits } = usePlanLimits();
   
-  const canUpload = limits.notesPerSubject === -1 || currentNoteCount < limits.notesPerSubject;
+  const canUpload = limits.notesPerSubject === -1 || props.currentNoteCount! < limits.notesPerSubject;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!props.targetId) {
+      toast.error('Subject ID is required');
+      return;
+    }
     if (!canUpload) {
       toast.error(`Note limit reached for this subject. Upgrade your plan to add more than ${limits.notesPerSubject} notes per subject.`);
       return;
@@ -39,7 +42,7 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
     const formData = new FormData();
     formData.append('title', title);
     formData.append('document', file);
-    formData.append('subjectId', subjectId);
+    formData.append('subjectId', props.targetId);
 
     try {
       await api.post('/notes/upload', formData, {
@@ -48,8 +51,8 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
       toast.success('Note uploaded successfully!');
       setTitle('');
       setFile(null);
-      onNoteUploaded();
-      onClose();
+      props.onNoteUploaded();
+      props.onClose();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Upload failed');
     } finally {
@@ -58,11 +61,11 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Upload Note">
+    <Modal isOpen={props.isOpen} onClose={props.onClose} title="Upload Note">
       {!canUpload && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
           <p className="text-yellow-800 dark:text-yellow-200 text-sm">
-            Note limit reached ({currentNoteCount}/{limits.notesPerSubject}). Upgrade your plan to add more notes.
+            Note limit reached ({props.currentNoteCount}/{limits.notesPerSubject}). Upgrade your plan to add more notes.
           </p>
         </div>
       )}
@@ -95,7 +98,7 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
             <FiUpload className="mr-2" />
             Upload Note
           </Button>
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={props.onClose}>
             <FiX className="mr-2" />
             Cancel
           </Button>

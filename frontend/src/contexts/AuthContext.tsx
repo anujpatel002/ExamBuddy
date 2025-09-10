@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!user?.token) return;
     
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001', {
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5001', {
       auth: { token: user.token }
     });
     

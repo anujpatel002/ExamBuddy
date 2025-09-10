@@ -8,20 +8,21 @@ import { updateStreak, addPoints } from '../utils/gamification.js';
 import { getPlanLimits } from '../middleware/planLimits.js';
 
 const uploadNote = asyncHandler(async (req, res) => {
+  // --- THIS IS THE FIX ---
+  // Define subjectId at the top of the function
+  const { title, subjectId } = req.body;
   const user = await User.findById(req.user._id);
   const userPlan = user.subscription?.plan || 'free';
   const limits = getPlanLimits(userPlan);
   
-  // Check notes per subject limit
+  // Now the check can safely use the subjectId variable
   const notesInSubject = await Note.countDocuments({ user: req.user._id, subject: subjectId });
   
   if (limits.notesPerSubject !== -1 && notesInSubject >= limits.notesPerSubject) {
     res.status(403);
-    throw new Error(`Note limit reached for this subject. Upgrade your plan to add more than ${limits.notesPerSubject} notes per subject.`);
+    throw new Error(`Note limit reached. Upgrade your plan to add more than ${limits.notesPerSubject} notes per subject.`);
   }
 
-  const { title } = req.body;
-  const { subjectId } = req.body;
   const file = req.file;
 
   if (!file || !title || !subjectId) {
@@ -29,8 +30,6 @@ const uploadNote = asyncHandler(async (req, res) => {
   }
 
   try {
-    console.log('Processing file upload:', { title, subjectId, fileName: file.originalname });
-    
     const fileHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
     const existingNote = await Note.findOne({ fileHash });
     
@@ -42,9 +41,7 @@ const uploadNote = asyncHandler(async (req, res) => {
       isDuplicate = true;
     }
 
-    console.log('Extracting text from file...');
     const textContent = await extractTextFromFile(file);
-    console.log('Text extracted, length:', textContent?.length || 0);
     
     const note = new Note({
       title, subject: subjectId, user: req.user._id, fileUrl,
@@ -52,17 +49,13 @@ const uploadNote = asyncHandler(async (req, res) => {
       fileHash, isDuplicate, embeddingStatus: 'pending'
     });
     
-    console.log('Saving note to database...');
     const createdNote = await note.save();
-    console.log('Note saved successfully:', createdNote._id);
     
     await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.noteCount': 1 } });
     
-    // Update gamification
     await updateStreak(req.user._id);
     await addPoints(req.user._id, 'UPLOAD_NOTE');
 
-    // Start embedding creation in background
     if (textContent && textContent.trim().length > 0) {
       createEmbeddingsForNote(createdNote._id, textContent)
           .then(async () => {

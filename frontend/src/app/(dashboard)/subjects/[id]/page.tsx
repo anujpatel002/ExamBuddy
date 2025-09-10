@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
@@ -190,7 +192,7 @@ export default function SubjectDetailPage() {
           {notes.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               {notes.map(note => (
-                <div key={note._id} className={`relative bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col transition-all ${isSelectionMode ? 'cursor-pointer' : ''} ${selectedNotes.includes(note._id) ? 'ring-2 ring-indigo-500' : ''}`} onClick={() => isSelectionMode && handleSelectNote(note._id)}>
+                <div key={note._id} className={`relative bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col transition-all ${isSelectionMode ? 'cursor-pointer' : ''} ${selectedNotes.includes(note._id) ? 'ring-2 ring-indigo-500' : ''}`} onClick={() => isSelectionMode ? handleSelectNote(note._id) : router.push(`/notes/${note._id}`)}>
                   {isSelectionMode ? (
                     <div className="p-4 flex-grow">
                       <input type="checkbox" checked={selectedNotes.includes(note._id)} readOnly className="absolute top-4 right-4 h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />

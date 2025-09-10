@@ -48,11 +48,18 @@ app.use(securityHeaders);
 // 2. CORS middleware must be next.
 const allowedOrigins = [
   'http://localhost:3000',
-  'http://192.168.1.14:3000'
+  'http://192.168.1.6:3000',
+ 
 ];
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    // Allow any origin that starts with the server IP
+    if (origin.startsWith('http://172.23.141.241') || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -60,6 +67,7 @@ const corsOptions = {
   },
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   allowedHeaders: 'Content-Type, Authorization',
+  credentials: true
 };
 app.use(cors(corsOptions));
 

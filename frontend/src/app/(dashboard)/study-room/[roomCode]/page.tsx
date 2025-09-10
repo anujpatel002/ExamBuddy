@@ -12,6 +12,7 @@ interface Member {
   _id: string;
   name: string;
   score: number;
+  submitted?: boolean;
 }
 
 interface RoomState {
@@ -59,7 +60,7 @@ export default function StudyRoomPage() {
       const isHost = searchParams.get('host') === 'true';
       
       // Initialize socket connection
-      const newSocket = io('http://localhost:5001');
+      const newSocket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5001');
       setSocket(newSocket);
       
       if (isHost && quizId) {
@@ -183,6 +184,9 @@ export default function StudyRoomPage() {
     
     return () => {
       clearInterval(pollInterval);
+      if (socket) {
+        socket.disconnect();
+      }
     };
   }, [user, roomCode, searchParams]);
 
@@ -230,7 +234,7 @@ export default function StudyRoomPage() {
   };
 
   const handleSubmitQuiz = async () => {
-    if (!quiz || roomState?.status === 'finished') return;
+    if (!quiz) return;
     
     let score = 0;
     quiz.questions.forEach((question, index) => {
@@ -241,22 +245,23 @@ export default function StudyRoomPage() {
 
     // Update score in backend
     try {
-      await api.put(`/study-rooms/${roomCode}/submit`, {
+      const { data: updatedRoom } = await api.put(`/study-rooms/${roomCode}/submit`, {
         userId: user?._id,
         score
       });
+      
+      // Update local state with backend response
+      setRoomState(updatedRoom);
+      setRoomMembers(updatedRoom.members);
+      
+      if (updatedRoom.status === 'finished') {
+        setTimeLeft(0);
+      }
     } catch (error) {
       console.error('Failed to submit score');
     }
 
-    const finalMembers = roomMembers.map(member => 
-      member._id === user?._id ? { ...member, score } : member
-    );
-
-    setRoomState(prev => prev ? {...prev, status: 'finished', members: finalMembers} : null);
-    setRoomMembers(finalMembers);
-    setTimeLeft(0); // Stop timer
-    toast.success(`Quiz completed! Score: ${score}/${quiz.questions.length}`);
+    toast.success(`Quiz submitted! Score: ${score}/${quiz.questions.length}`);
   };
 
   const handleLeaveRoom = async () => {
@@ -295,7 +300,7 @@ export default function StudyRoomPage() {
     }, 1000);
     
     return () => clearInterval(timer);
-  }, [roomState?.status, timeLeft]);
+  }, [roomState?.status, timeLeft, handleSubmitQuiz]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -365,7 +370,10 @@ export default function StudyRoomPage() {
               {member._id === roomState.host && <FiStar className="text-yellow-500" />}
               <div>
                 <p className="font-medium text-sm">{member.name}</p>
-                <p className="text-xs text-gray-500">Score: {member.score}</p>
+                <p className="text-xs text-gray-500">
+                  Score: {member.score}
+                  {member.submitted && <span className="ml-2 text-green-600">✓ Submitted</span>}
+                </p>
               </div>
             </div>
           ))}

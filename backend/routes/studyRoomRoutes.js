@@ -82,14 +82,18 @@ router.put('/:roomCode/submit', protect, (req, res) => {
     return res.status(404).json({ message: 'Room not found' });
   }
   
-  // Update user score
+  // Update user score and mark as submitted
   const member = room.members.find(m => m._id === userId);
   if (member) {
     member.score = score;
+    member.submitted = true;
   }
   
-  // Check if all users have submitted (for demo, just mark as finished)
-  room.status = 'finished';
+  // Check if all users have submitted
+  const allSubmitted = room.members.every(m => m.submitted);
+  if (allSubmitted) {
+    room.status = 'finished';
+  }
   
   console.log(`User ${userId} submitted score ${score} in room ${roomCode}`);
   res.json(room);
