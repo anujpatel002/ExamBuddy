@@ -49,7 +49,7 @@ app.use(securityHeaders);
 const allowedOrigins = [
   'http://localhost:3000',
   'http://192.168.1.6:3000',
- 
+  'https://exambuddy-delta.vercel.app'
 ];
 const corsOptions = {
   origin: function (origin, callback) {
