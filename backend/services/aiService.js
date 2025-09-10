@@ -95,8 +95,40 @@ export const generateMarkBasedQuestions = async (textContent, category = null, e
 export const generateMindMap = async (textContent) => {
   const prompt = `
   **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
-  Analyze the following text and represent its hierarchical structure as a nested JSON object suitable for a mind map. The root object must have a "name" and a "children" array. Each child object can also have a "name" and a "children" array. Keep the names concise.
-  Return ONLY the valid JSON object and nothing else. Do not wrap it in markdown.
+  
+  Create a comprehensive, detailed mind map from the following text. The mind map should include:
+  - Main topics as primary branches
+  - Subtopics with detailed explanations
+  - Key concepts with examples where applicable
+  - Important formulas, definitions, or facts
+  - Practical applications or real-world examples
+  - Memory aids or mnemonics where helpful
+  
+  Structure as nested JSON with this format:
+  {
+    "name": "Main Topic",
+    "description": "Brief overview of the main topic",
+    "children": [
+      {
+        "name": "Subtopic 1",
+        "description": "Detailed explanation of this subtopic",
+        "examples": ["Example 1", "Example 2"],
+        "keyPoints": ["Important point 1", "Important point 2"],
+        "children": [
+          {
+            "name": "Sub-subtopic",
+            "description": "Detailed explanation",
+            "formula": "Mathematical formula if applicable",
+            "examples": ["Specific example with solution"],
+            "applications": ["Real-world application"]
+          }
+        ]
+      }
+    ]
+  }
+  
+  Make it as detailed and educational as possible. Include practical examples, step-by-step explanations, and memory aids.
+  Return ONLY the valid JSON object.
   ---
   TEXT TO USE:
   "${textContent}"`;
