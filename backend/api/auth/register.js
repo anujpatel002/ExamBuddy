@@ -1,6 +1,5 @@
 import connectDB from '../../config/db.js';
 import { registerUser } from '../../controllers/authController.js';
-import { validateRegister } from '../../middleware/validation.js';
 
 export default async function handler(req, res) {
   // Set CORS headers
@@ -19,24 +18,7 @@ export default async function handler(req, res) {
   
   try {
     await connectDB();
-    
-    // Mock req/res for middleware compatibility
-    const mockReq = { ...req, body: req.body };
-    const mockRes = { 
-      ...res,
-      status: (code) => ({ json: (data) => res.status(code).json(data) })
-    };
-    
-    // Validate request
-    await new Promise((resolve, reject) => {
-      validateRegister(mockReq, mockRes, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-    
-    // Call register controller
-    await registerUser(mockReq, res);
+    await registerUser(req, res);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error', message: error.message });
   }
