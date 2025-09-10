@@ -1,5 +1,5 @@
 'use client';
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
@@ -11,7 +11,7 @@ import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import { FiMail } from 'react-icons/fi';
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+function DashboardContent({ children }: { children: ReactNode }) {
   const { user, loading, login, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
@@ -74,5 +74,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         />
       )}
     </div>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900"><Spinner /></div>}>
+      <DashboardContent>{children}</DashboardContent>
+    </Suspense>
   );
 }
