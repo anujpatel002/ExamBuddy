@@ -159,7 +159,7 @@ export default function SubjectDetailPage() {
       </div>
 
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-        <nav className="-mb-px flex space-x-4 overflow-x-auto scrollbar-hide pb-2">
+        <nav className="-mb-px flex space-x-2 sm:space-x-4 overflow-x-auto scrollbar-hide pb-2">
           <button onClick={() => setActiveTab('notes')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'notes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             <FiBook className="w-4 h-4" /> Notes
           </button>
@@ -224,18 +224,28 @@ export default function SubjectDetailPage() {
       )}
 
       {activeTab === 'qbank' && (
-        <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow">
-          <h2 className="text-xl md:text-2xl font-semibold mb-4">AI-Curated Question Bank</h2>
+        <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 md:p-6 rounded-lg shadow">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-semibold mb-3 sm:mb-4">AI-Curated Question Bank</h2>
           {subject?.questionBank && subject.questionBank.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {subject.questionBank.sort((a, b) => a.importance - b.importance).map((topicItem: any) => (
-                <div key={topicItem.topic} className="border dark:border-gray-700 rounded-lg p-4">
-                  <h3 className="font-semibold text-lg mb-2">Topic: {topicItem.topic} (Importance: {topicItem.importance})</h3>
-                  <div className="space-y-3">
+                <div key={topicItem.topic} className="border dark:border-gray-700 rounded-lg p-3 sm:p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-3">
+                    <h3 className="font-semibold text-base sm:text-lg mb-1 sm:mb-0">{topicItem.topic}</h3>
+                    <span className="text-xs sm:text-sm bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-2 py-1 rounded-full self-start">
+                      Priority: {topicItem.importance}
+                    </span>
+                  </div>
+                  <div className="space-y-2 sm:space-y-3">
                     {topicItem.questions.map((q: any, i: number) => (
-                      <div key={i} className="border-l-4 border-indigo-500 pl-4">
-                        <h4 className="font-medium">{q.marks} Marks: {q.question}</h4>
-                        <div className="prose dark:prose-invert max-w-none mt-2" dangerouslySetInnerHTML={{ __html: q.answer }} />
+                      <div key={i} className="border-l-4 border-indigo-500 pl-3 sm:pl-4 bg-gray-50 dark:bg-gray-700/50 rounded-r-lg py-2 sm:py-3">
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2 mb-2">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 self-start">
+                            {q.marks} Mark{q.marks > 1 ? 's' : ''}
+                          </span>
+                          <h4 className="font-medium text-sm sm:text-base flex-1">{q.question}</h4>
+                        </div>
+                        <div className="prose dark:prose-invert prose-sm sm:prose-base max-w-none mt-2 text-sm sm:text-base" dangerouslySetInnerHTML={{ __html: q.answer }} />
                       </div>
                     ))}
                   </div>
@@ -243,10 +253,10 @@ export default function SubjectDetailPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <FiTarget className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-xl font-semibold">Generate Your Question Bank</h3>
-              <p className="mt-1 text-sm text-gray-500 mb-4">Analyze all notes in this subject to generate a prioritized question bank.</p>
+            <div className="text-center py-8 sm:py-12">
+              <FiTarget className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
+              <h3 className="mt-2 text-lg sm:text-xl font-semibold">Generate Your Question Bank</h3>
+              <p className="mt-1 text-sm text-gray-500 mb-4 px-4">Analyze all notes in this subject to generate a prioritized question bank.</p>
               <Button 
                 onClick={async () => {
                   setIsSubmitting(true);
@@ -261,6 +271,7 @@ export default function SubjectDetailPage() {
                   }
                 }} 
                 isLoading={isSubmitting}
+                className="w-full sm:w-auto"
               >
                 Generate Question Bank
               </Button>
