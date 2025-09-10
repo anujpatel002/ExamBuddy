@@ -1,6 +1,5 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import os from 'os';
 
 const router = express.Router();
 
@@ -10,7 +9,9 @@ router.get('/health', async (req, res) => {
   
   let dbHealth = 'Healthy';
   try {
-    await mongoose.connection.db.admin().ping();
+    if (mongoose.connection.db) {
+      await mongoose.connection.db.admin().ping();
+    }
   } catch (error) {
     dbHealth = 'Unhealthy';
   }
@@ -19,24 +20,12 @@ router.get('/health', async (req, res) => {
     status: dbStatus === 1 ? 'OK' : 'ERROR',
     timestamp: new Date().toISOString(),
     uptime: `${Math.floor(process.uptime())}s`,
-    environment: process.env.NODE_ENV || 'development',
+    environment: process.env.NODE_ENV || 'production',
     database: {
       status: dbStates[dbStatus],
-      health: dbHealth,
-      host: mongoose.connection.host,
-      name: mongoose.connection.name
+      health: dbHealth
     },
-    server: {
-      platform: os.platform(),
-      arch: os.arch(),
-      nodeVersion: process.version,
-      memory: {
-        used: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
-        total: `${Math.round(os.totalmem() / 1024 / 1024)}MB`,
-        free: `${Math.round(os.freemem() / 1024 / 1024)}MB`
-      },
-      cpu: os.cpus().length
-    },
+    memory: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
     version: '1.0.0'
   };
   
