@@ -1,6 +1,7 @@
+import jwt from 'jsonwebtoken';
 import connectDB from '../../config/db.js';
+import User from '../../models/userModel.js';
 import { getNotes, createNote } from '../../controllers/noteController.js';
-import { protect } from '../../middleware/authMiddleware.js';
 
 export default async function handler(req, res) {
   // Set CORS headers
@@ -16,13 +17,14 @@ export default async function handler(req, res) {
   try {
     await connectDB();
     
-    // Apply auth middleware
-    await new Promise((resolve, reject) => {
-      protect(req, res, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    // Auth check
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ error: 'Not authorized, no token' });
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(decoded.id).select('-password');
     
     if (req.method === 'GET') {
       await getNotes(req, res);
