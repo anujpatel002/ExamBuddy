@@ -16,4 +16,35 @@ body {
 .dark .prose strong {
   color: theme('colors.slate.100');
 }
+
+/* Mobile code block fixes */
+.prose pre {
+  @apply overflow-x-auto max-w-full;
+  white-space: pre;
+  word-wrap: normal;
+}
+
+.prose code {
+  @apply break-words;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+.prose pre code {
+  white-space: pre;
+  word-break: normal;
+}
+
+@media (max-width: 640px) {
+  .prose pre {
+    font-size: 12px;
+    padding: 8px;
+    margin: 8px 0;
+  }
+  
+  .prose code {
+    font-size: 12px;
+    padding: 2px 4px;
+  }
+}
 /* ----------------------------- */

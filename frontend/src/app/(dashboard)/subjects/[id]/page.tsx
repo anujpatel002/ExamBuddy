@@ -245,7 +245,7 @@ export default function SubjectDetailPage() {
                           </span>
                           <h4 className="font-medium text-sm sm:text-base flex-1">{q.question}</h4>
                         </div>
-                        <div className="prose dark:prose-invert prose-sm sm:prose-base max-w-none mt-2 text-sm sm:text-base" dangerouslySetInnerHTML={{ __html: q.answer }} />
+                        <div className="prose dark:prose-invert prose-sm sm:prose-base max-w-none mt-2 text-sm sm:text-base overflow-x-auto" dangerouslySetInnerHTML={{ __html: q.answer }} />
                       </div>
                     ))}
                   </div>
