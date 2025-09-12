@@ -16,10 +16,26 @@ const userSchema = mongoose.Schema(
     emailVerificationToken: String,
     lastVerificationEmailSent: Date,
     subscription: {
-      plan: { type: String, default: 'free' },
+      plan: { type: String, default: 'free', enum: ['free', 'pro', 'premium', 'ultra'] },
       razorpayCustomerId: String,
       razorpaySubscriptionId: String,
-      status: { type: String, default: 'active' },
+      status: { type: String, default: 'active', enum: ['active', 'cancelled', 'expired', 'paused'] },
+      startDate: { type: Date, default: Date.now },
+      endDate: { type: Date },
+      autoRenew: { type: Boolean, default: true },
+      paymentMethod: { type: String, enum: ['razorpay', 'admin', 'manual'], default: 'razorpay' },
+      lastPaymentDate: Date,
+      nextBillingDate: Date,
+      billingCycle: { type: String, enum: ['monthly', 'yearly'], default: 'monthly' },
+      previousPlan: String,
+      planHistory: [{
+        plan: String,
+        startDate: Date,
+        endDate: Date,
+        changedBy: String,
+        reason: String,
+        createdAt: { type: Date, default: Date.now }
+      }]
     },
     usage: {
       requests: { type: Number, default: 0 },
@@ -49,6 +65,14 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
+// Check and expire subscriptions before save
+userSchema.pre('save', function (next) {
+  if (this.subscription.plan !== 'free' && this.subscription.endDate && new Date() > this.subscription.endDate && this.subscription.status === 'active') {
+    this.expireSubscription();
+  }
+  next();
+});
+
 // Method to compare passwords
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
@@ -62,6 +86,46 @@ userSchema.methods.createEmailVerificationToken = function() {
     .update(verificationToken)
     .digest('hex');
   return verificationToken;
+};
+
+// Method to check if subscription is active
+userSchema.methods.isSubscriptionActive = function() {
+  if (this.subscription.plan === 'free') return true;
+  if (this.subscription.status !== 'active') return false;
+  if (this.subscription.endDate && new Date() > this.subscription.endDate) {
+    return false;
+  }
+  return true;
+};
+
+// Method to get remaining days
+userSchema.methods.getRemainingDays = function() {
+  if (this.subscription.plan === 'free') return null;
+  if (!this.subscription.endDate) return null;
+  
+  const now = new Date();
+  now.setHours(0, 0, 0, 0); // Start of today
+  
+  const endDate = new Date(this.subscription.endDate);
+  endDate.setHours(0, 0, 0, 0); // Start of end date
+  
+  const diffTime = endDate - now;
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays >= 0 ? diffDays : 0;
+};
+
+// Method to expire subscription
+userSchema.methods.expireSubscription = function() {
+  this.subscription.previousPlan = this.subscription.plan;
+  this.subscription.plan = 'free';
+  this.subscription.status = 'expired';
+  this.subscription.planHistory.push({
+    plan: this.subscription.previousPlan,
+    startDate: this.subscription.startDate,
+    endDate: this.subscription.endDate,
+    changedBy: 'system',
+    reason: 'Subscription expired'
+  });
 };
 
 const User = mongoose.model('User', userSchema);

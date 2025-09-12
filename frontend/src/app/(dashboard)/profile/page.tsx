@@ -21,13 +21,35 @@ const ProfilePage = () => {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
   const router = useRouter();
 
   useEffect(() => {
     if (user) {
       setName(user.name);
+      fetchSubscriptionStatus();
     }
   }, [user]);
+
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const { data } = await api.get('/auth/subscription-status');
+      setSubscriptionStatus(data);
+      console.log('Subscription Status:', data); // Debug log
+    } catch (error) {
+      console.error('Failed to fetch subscription status:', error);
+      // Fallback to user data if API fails
+      if (user?.subscription) {
+        setSubscriptionStatus({
+          plan: user.subscription.plan,
+          status: user.subscription.status,
+          endDate: user.subscription.endDate,
+          remainingDays: user.subscription.endDate ? 
+            Math.ceil((new Date(user.subscription.endDate) - new Date()) / (1000 * 60 * 60 * 24)) : null
+        });
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,8 +74,11 @@ const ProfilePage = () => {
     return <div className="flex justify-center py-8"><Spinner /></div>;
   }
 
-  const plan = user.subscription?.plan || 'free';
-  const isSubscribed = plan !== 'free' && user.subscription?.status === 'active';
+  const plan = subscriptionStatus?.plan || user.subscription?.plan || 'free';
+  const isSubscribed = plan !== 'free' && (subscriptionStatus?.status || user.subscription?.status) === 'active';
+  const remainingDays = subscriptionStatus?.remainingDays;
+  const endDate = subscriptionStatus?.endDate;
+  const isActive = subscriptionStatus?.isActive;
   const baseCreditLimit = PLAN_LIMITS[plan] || 0;
   const customCredits = user.usage?.customCredits || 0;
   const creditLimit = baseCreditLimit + customCredits;
@@ -100,6 +125,7 @@ const ProfilePage = () => {
             onClick={async () => {
               setIsRefreshing(true);
               await refreshUser();
+              await fetchSubscriptionStatus();
               setIsRefreshing(false);
             }}
             variant="secondary"
@@ -115,8 +141,40 @@ const ProfilePage = () => {
               You are currently on the <span className="font-bold text-indigo-500 capitalize">{plan}</span> plan.
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Status: <span className="capitalize">{user.subscription?.status || 'Inactive'}</span>
+              Status: <span className={`capitalize ${isActive ? 'text-green-600' : 'text-red-600'}`}>
+                {subscriptionStatus?.status || user.subscription?.status || 'Inactive'}
+              </span>
             </p>
+            {plan !== 'free' && (
+              <div className="mt-2 space-y-1">
+                {endDate ? (
+                  <>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {remainingDays !== null && remainingDays > 0 ? (
+                        <span className="text-blue-600 font-medium">
+                          ⏰ {remainingDays} days remaining
+                        </span>
+                      ) : remainingDays === 0 ? (
+                        <span className="text-orange-600 font-medium">
+                          ⚠️ Expires today
+                        </span>
+                      ) : (
+                        <span className="text-red-600 font-medium">
+                          ❌ Expired on {new Date(endDate).toLocaleDateString()}
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      📅 {remainingDays > 0 ? 'Expires' : 'Expired'} on {new Date(endDate).toLocaleDateString()}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-orange-600">
+                    ⚠️ No expiration date set - Contact admin
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           {isSubscribed ? (
             <Button onClick={handleManageSubscription} variant="secondary">Manage Subscription</Button>

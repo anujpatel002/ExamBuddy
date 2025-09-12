@@ -28,7 +28,7 @@
     "jsdom": "^26.1.0",
     "jsonwebtoken": "^9.0.2",
     "langchain": "^0.3.33",
-    "mammoth": "^1.7.2",
+    "mammoth": "^1.10.0",
     "marked": "^16.2.1",
     "mongoose": "^8.4.1",
     "morgan": "^1.10.1",

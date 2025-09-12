@@ -23,7 +23,7 @@ const generateContent = async (prompt) => {
 
 export const answerDoubt = async (context, question) => {
     const prompt = `
-    **Primary Directive:** Your response MUST be in the same language as the user's question. Based ONLY on the "CONTEXT FROM NOTES" provided below, answer the user's question. If the answer is not in the context, say "I'm sorry, I can't find that information in your notes."
+    Based ONLY on the "CONTEXT FROM NOTES" provided below, answer the user's question. If the answer is not in the context, say "I'm sorry, I can't find that information in your notes."
 
     ---
     CONTEXT FROM NOTES:
@@ -55,7 +55,6 @@ const cleanAndParseJson = (rawResponse) => {
 
 export const generateSummary = async (textContent) => {
   const prompt = `
-  **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
   Act as an expert academic tutor. Summarize the text using appropriate formatting like headings, bullet points, and bold keywords.
   ---
   TEXT TO USE:
@@ -67,7 +66,6 @@ export const generateMarkBasedQuestions = async (textContent, category = null, e
   const existingQuestionsString = existingQuestions.map(q => q.question).join('\n');
   const prompt = category 
     ? `
-      **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
       Generate 2-3 new, unique questions for the "${category}" category. Do NOT repeat any of the following questions:
       ${existingQuestionsString}
       Return the output as a valid JSON array of objects with "question" and "answer" keys. Do not wrap the JSON in markdown backticks.
@@ -76,7 +74,6 @@ export const generateMarkBasedQuestions = async (textContent, category = null, e
       "${textContent}"
       `
     : `
-      **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
       Act as an expert exam paper creator. Generate a set of questions categorized by marks.
       Return the output as a single, valid JSON object with keys "oneMarker", "threeMarker", "fourMarker", and "fiveMarker". Each key should hold an array of objects with "question" and "answer" keys. Do not wrap the JSON in markdown backticks.
       ---
@@ -94,8 +91,6 @@ export const generateMarkBasedQuestions = async (textContent, category = null, e
 
 export const generateMindMap = async (textContent) => {
   const prompt = `
-  **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
-  
   Create a comprehensive, detailed mind map from the following text. The mind map should include:
   - Main topics as primary branches
   - Subtopics with detailed explanations
@@ -178,7 +173,7 @@ export const generateQuestionsForTopic = async (textContent, topic) => {
 export const generateTitle = async (textContent) => {
   const truncatedText = textContent.substring(0, 500);
   const prompt = `
-  **Primary Directive:** Analyze the following text and suggest a short, descriptive title for it (5-10 words maximum). Your response must be only the title text, with no extra words or quotation marks.
+  Analyze the following text and suggest a short, descriptive title for it (5-10 words maximum). Your response must be only the title text, with no extra words or quotation marks.
   ---
   TEXT TO ANALYZE:
   "${truncatedText}"`;
@@ -187,7 +182,6 @@ export const generateTitle = async (textContent) => {
 
 export const generateFlashcards = async (textContent, existingCount = 0) => {
   const prompt = `
-  **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
   Generate 5 unique question and answer pairs suitable for flashcards, different from the first ${existingCount} questions. Return the output as a valid JSON array of objects with "question" and "answer" keys. Do not wrap the JSON in markdown backticks.
   ---
   TEXT TO USE:
@@ -204,7 +198,6 @@ export const generateFlashcards = async (textContent, existingCount = 0) => {
 
 export const generateQuiz = async (textContent, questionCount = 5) => {
     const prompt = `
-    **Primary Directive:** Your response MUST be in the same language as the "TEXT TO USE" provided below.
     Create a quiz with exactly ${questionCount} multiple-choice questions (MCQs) and 2 descriptive questions.
     
     For MCQs, return JSON with this EXACT structure:

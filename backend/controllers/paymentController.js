@@ -3,12 +3,21 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import User from '../models/userModel.js';
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+let razorpay = null;
+
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+}
 
 const createSubscription = asyncHandler(async (req, res) => {
+  if (!razorpay) {
+    res.status(503);
+    throw new Error('Payment service is not configured');
+  }
+
   const { plan_id } = req.body;
   const user = await User.findById(req.user._id);
 
@@ -73,14 +82,43 @@ const handleWebhook = asyncHandler(async (req, res) => {
                 planName = 'ultra';
             }
             
+            // Save current plan to history
+            if (user.subscription.plan !== 'free') {
+                user.subscription.planHistory.push({
+                    plan: user.subscription.plan,
+                    startDate: user.subscription.startDate,
+                    endDate: user.subscription.endDate,
+                    changedBy: 'Razorpay Payment',
+                    reason: 'Plan upgrade via payment'
+                });
+            }
+            
+            user.subscription.previousPlan = user.subscription.plan;
             user.subscription.plan = planName;
             user.subscription.status = 'active';
             user.subscription.razorpaySubscriptionId = sub.id;
+            user.subscription.paymentMethod = 'razorpay';
+            
+            // Set subscription dates
+            const startDate = new Date();
+            startDate.setHours(0, 0, 0, 0);
+            user.subscription.startDate = startDate;
+            
+            const endDate = new Date(startDate);
+            if (planName === 'ultra') {
+                endDate.setMonth(endDate.getMonth() + 3); // 3 months for ultra
+            } else {
+                endDate.setMonth(endDate.getMonth() + 1); // 1 month for others
+            }
+            user.subscription.endDate = endDate;
+            user.subscription.nextBillingDate = endDate;
+            user.subscription.billingCycle = 'monthly';
+            
             if (!user.subscription.razorpayCustomerId) {
                 user.subscription.razorpayCustomerId = sub.customer_id;
             }
             await user.save();
-            console.log(`Subscription activated for ${user.email} with plan: ${planName}`);
+            console.log(`Subscription activated for ${user.email} with plan: ${planName}, expires: ${endDate.toDateString()}`);
         }
     }
     

@@ -207,8 +207,8 @@ export default function SubjectDetailPage() {
                   {!isSelectionMode && (
                     <div className="flex items-center gap-2 p-4 pt-0 border-t dark:border-gray-700">
                       <div className="ml-auto flex gap-2">
-                        <Button variant="secondary" size="sm" className="px-3" onClick={() => handleEditClick(note)}><FiEdit /></Button>
-                        <Button variant="secondary" size="sm" className="px-3 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/50" onClick={() => handleDeleteClick(note)}><FiTrash2 /></Button>
+                        <Button variant="secondary" size="sm" className="px-3" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditClick(note); }}><FiEdit /></Button>
+                        <Button variant="secondary" size="sm" className="px-3 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/50" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteClick(note); }}><FiTrash2 /></Button>
                       </div>
                     </div>
                   )}

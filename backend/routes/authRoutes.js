@@ -5,7 +5,8 @@ import {
   registerUser, 
   authUser, 
   verifyEmail, 
-  getUserProfile 
+  getUserProfile,
+  getSubscriptionStatus 
 } from '../controllers/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { validateAuth, validateRegister } from '../middleware/validation.js';
@@ -14,5 +15,6 @@ router.post('/register', validateRegister, registerUser);
 router.post('/login', validateAuth, authUser);
 router.get('/verify-email/:token', verifyEmail);
 router.get('/profile', protect, getUserProfile);
+router.get('/subscription-status', protect, getSubscriptionStatus);
 
 export default router;

@@ -116,13 +116,23 @@ const authUser = asyncHandler(async (req, res) => {
 const getUserProfile = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id);
     if (user) {
+        // Check and update subscription status
+        if (!user.isSubscriptionActive() && user.subscription.plan !== 'free' && user.subscription.status === 'active') {
+            user.expireSubscription();
+            await user.save();
+        }
+        
         res.json({
             _id: user._id,
             name: user.name,
             email: user.email,
             role: user.role,
             isVerified: user.isVerified,
-            subscription: user.subscription,
+            subscription: {
+                ...user.subscription.toObject(),
+                isActive: user.isSubscriptionActive(),
+                remainingDays: user.getRemainingDays()
+            },
             usage: user.usage,
         });
     } else {
@@ -130,4 +140,47 @@ const getUserProfile = asyncHandler(async (req, res) => {
     }
 });
 
-export { registerUser, authUser, verifyEmail, getUserProfile };
+// Get user subscription status
+const getSubscriptionStatus = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id);
+    if (user) {
+        // Fix missing endDate for non-free plans
+        if (user.subscription.plan !== 'free' && !user.subscription.endDate) {
+            const startDate = new Date();
+            startDate.setHours(0, 0, 0, 0);
+            user.subscription.startDate = startDate;
+            
+            const endDate = new Date(startDate);
+            if (user.subscription.plan === 'ultra') {
+                endDate.setMonth(endDate.getMonth() + 3); // 3 months for ultra
+            } else {
+                endDate.setMonth(endDate.getMonth() + 1);
+            }
+            
+            user.subscription.endDate = endDate;
+            user.subscription.status = 'active';
+            await user.save();
+        }
+        
+        // Check and update subscription status
+        if (!user.isSubscriptionActive() && user.subscription.plan !== 'free' && user.subscription.status === 'active') {
+            user.expireSubscription();
+            await user.save();
+        }
+        
+        res.json({
+            plan: user.subscription.plan,
+            status: user.subscription.status,
+            isActive: user.isSubscriptionActive(),
+            remainingDays: user.getRemainingDays(),
+            endDate: user.subscription.endDate,
+            billingCycle: user.subscription.billingCycle,
+            autoRenew: user.subscription.autoRenew,
+            previousPlan: user.subscription.previousPlan
+        });
+    } else {
+        res.status(404); throw new Error('User not found');
+    }
+});
+
+export { registerUser, authUser, verifyEmail, getUserProfile, getSubscriptionStatus };

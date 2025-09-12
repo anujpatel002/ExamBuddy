@@ -16,13 +16,31 @@ const PricingPage = () => {
   const [loading, setLoading] = useState('');
   const { user, logout } = useAuth();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
+
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const { data } = await api.get('/auth/subscription-status');
+      setSubscriptionStatus(data);
+    } catch (error) {
+      console.error('Failed to fetch subscription status:', error);
+    }
+  };
 
   useEffect(() => {
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
     document.body.appendChild(script);
-  }, []);
+    
+    if (user) {
+      fetchSubscriptionStatus();
+    }
+  }, [user]);
+
+  const currentPlan = subscriptionStatus?.plan || user?.subscription?.plan || 'free';
+  const isCurrentPlan = (plan: string) => currentPlan === plan;
+  const remainingDays = subscriptionStatus?.remainingDays;
 
   const handleSubscribe = async (plan_id: string) => {
     setLoading(plan_id);
@@ -34,6 +52,10 @@ const PricingPage = () => {
         subscription_id: data.subscriptionId,
         name: 'ExamBuddy Subscription',
         handler: function (response: any) {
+          // Refresh subscription status after successful payment
+          setTimeout(() => {
+            fetchSubscriptionStatus();
+          }, 2000);
           setShowSuccessModal(true);
         },
         prefill: {
@@ -72,7 +94,15 @@ const PricingPage = () => {
             <li className="flex items-center gap-2"><FiCheck className="text-green-500"/>Basic Quiz Generation</li>
             <li className="flex items-center gap-2"><FiCheck className="text-green-500"/>25 AI Credits (One-time)</li>
           </ul>
-          <Button variant="secondary" className="mt-auto w-full" disabled>Your Current Plan</Button>
+          <Button 
+            variant={isCurrentPlan('free') ? 'primary' : 'secondary'} 
+            className="mt-auto w-full" 
+            disabled={isCurrentPlan('free')}
+          >
+            {isCurrentPlan('free') ? (
+              remainingDays ? `Current Plan (${remainingDays} days left)` : 'Your Current Plan'
+            ) : 'Free Plan'}
+          </Button>
         </div>
 
         {/* Pro Plan */}
@@ -89,7 +119,17 @@ const PricingPage = () => {
             <li className="flex items-center gap-2"><FiCheck className="text-green-500"/>Concept Comparison</li>
             <li className="flex items-center gap-2"><FiCheck className="text-green-500"/>100 AI Credits / month</li>
           </ul>
-          <Button onClick={() => handleSubscribe(proPlanId)} isLoading={loading === proPlanId} className="mt-auto w-full">Upgrade to Pro</Button>
+          <Button 
+            onClick={() => handleSubscribe(proPlanId)} 
+            isLoading={loading === proPlanId} 
+            className="mt-auto w-full"
+            variant={isCurrentPlan('pro') ? 'primary' : 'default'}
+            disabled={isCurrentPlan('pro')}
+          >
+            {isCurrentPlan('pro') ? (
+              remainingDays ? `Current Plan (${remainingDays} days left)` : 'Your Current Plan'
+            ) : 'Upgrade to Pro'}
+          </Button>
         </div>
 
         {/* Premium Plan */}
@@ -106,7 +146,17 @@ const PricingPage = () => {
             <li className="flex items-center gap-2"><FiCheck className="text-green-500"/>Priority AI Processing</li>
             <li className="flex items-center gap-2"><FiCheck className="text-green-500"/>300 AI Credits / month</li>
           </ul>
-          <Button onClick={() => handleSubscribe(premiumPlanId)} isLoading={loading === premiumPlanId} className="mt-auto w-full">Upgrade to Premium</Button>
+          <Button 
+            onClick={() => handleSubscribe(premiumPlanId)} 
+            isLoading={loading === premiumPlanId} 
+            className="mt-auto w-full"
+            variant={isCurrentPlan('premium') ? 'primary' : 'default'}
+            disabled={isCurrentPlan('premium')}
+          >
+            {isCurrentPlan('premium') ? (
+              remainingDays ? `Current Plan (${remainingDays} days left)` : 'Your Current Plan'
+            ) : 'Upgrade to Premium'}
+          </Button>
         </div>
         
         {/* Ultra Plan */}
@@ -123,15 +173,29 @@ const PricingPage = () => {
             <li className="flex items-center gap-2"><FiCheck className="text-green-500"/>24/7 Priority Support</li>
             <li className="flex items-center gap-2"><FiCheck className="text-green-500"/>1000 AI Credits / month</li>
           </ul>
-          <Button onClick={() => handleSubscribe(ultraPlanId)} isLoading={loading === ultraPlanId} className="mt-auto w-full">Upgrade to Ultra</Button>
+          <Button 
+            onClick={() => handleSubscribe(ultraPlanId)} 
+            isLoading={loading === ultraPlanId} 
+            className="mt-auto w-full"
+            variant={isCurrentPlan('ultra') ? 'primary' : 'default'}
+            disabled={isCurrentPlan('ultra')}
+          >
+            {isCurrentPlan('ultra') ? (
+              remainingDays ? `Current Plan (${remainingDays} days left)` : 'Your Current Plan'
+            ) : 'Upgrade to Ultra'}
+          </Button>
         </div>
       </div>
       
       <SuccessModal
         isOpen={showSuccessModal}
-        onConfirm={logout}
+        onConfirm={() => {
+          setShowSuccessModal(false);
+          fetchSubscriptionStatus();
+          window.location.reload();
+        }}
         title="Plan Updated Successfully!"
-        message="Your subscription plan will be updated shortly. Please log in again in a moment to access your new features."
+        message="Your subscription plan has been updated! The page will refresh to show your new plan."
       />
     </div>
   );
