@@ -22,7 +22,24 @@ export default function RootLayout({
       <body className={poppins.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
-            <Toaster position="top-center" />
+            <Toaster 
+              position="top-center"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  maxWidth: '90vw',
+                },
+                success: {
+                  duration: 3000,
+                },
+                error: {
+                  duration: 4000,
+                },
+              }}
+              containerStyle={{
+                top: 20,
+              }}
+            />
             {children}
           </AuthProvider>
         </ThemeProvider>

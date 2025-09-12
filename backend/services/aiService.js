@@ -22,17 +22,59 @@ const generateContent = async (prompt) => {
 };
 
 export const answerDoubt = async (context, question) => {
+    const isKeyPointsRequest = question.toLowerCase().includes('key points') || 
+                              question.toLowerCase().includes('main points') ||
+                              question.toLowerCase().includes('briefly') ||
+                              question.toLowerCase().includes('summarize') ||
+                              question.toLowerCase().includes('advantages') ||
+                              question.toLowerCase().includes('benefits') ||
+                              question.toLowerCase().includes('features');
+    
     const prompt = `
-    Based ONLY on the "CONTEXT FROM NOTES" provided below, answer the user's question. If the answer is not in the context, say "I'm sorry, I can't find that information in your notes."
-
+    You are an expert academic tutor. Answer the student's question using the provided context from their study notes.
+    
+    **FORMATTING REQUIREMENTS:**
+    - Use proper headings with **bold text**
+    - Use bullet points (•) for lists
+    - Use numbered lists (1. 2. 3.) for steps
+    - Use line breaks between sections
+    - Use **bold** for important terms
+    - Use *italic* for emphasis
+    
+    **INSTRUCTIONS:**
+    1. Carefully analyze the context to find relevant information
+    ${isKeyPointsRequest ? 
+        `2. Format as:
+        **Key Points:**
+        
+        • Point 1
+        • Point 2  
+        • Point 3
+        
+        Keep each point concise and focused` :
+        `2. Format with clear sections using headings
+        3. Use bullet points for features/benefits
+        4. Use numbered lists for procedures/steps
+        5. Provide detailed explanations with examples`
+    }
+    6. Use clear, educational language with proper formatting
+    7. Only say information is not available if there's truly NO related content
+    
     ---
     CONTEXT FROM NOTES:
     ${context}
     ---
-    USER'S QUESTION:
+    
+    STUDENT'S QUESTION:
     "${question}"
+    
+    ANSWER:
     `;
-    return await generateContent(prompt);
+    
+    const response = await generateContent(prompt);
+    
+    // Clean text formatting without HTML tags
+    return response;
 };
 
 const cleanAndParseJson = (rawResponse) => {
@@ -182,6 +224,7 @@ export const generateTitle = async (textContent) => {
 
 export const generateFlashcards = async (textContent, existingCount = 0) => {
   const prompt = `
+  **IMPORTANT: Generate all content in English language only.**
   Generate 5 unique question and answer pairs suitable for flashcards, different from the first ${existingCount} questions. Return the output as a valid JSON array of objects with "question" and "answer" keys. Do not wrap the JSON in markdown backticks.
   ---
   TEXT TO USE:

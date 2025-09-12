@@ -5,7 +5,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import Navbar from '@/components/layout/Navbar';
 import Spinner from '@/components/ui/Spinner';
 import { io } from 'socket.io-client';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import NoteProcessingToast from '@/components/ui/NoteProcessingToast';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
@@ -55,9 +55,7 @@ function DashboardContent({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen">
-      <Toaster position="bottom-right" toastOptions={{
-        className: 'dark:bg-gray-800 dark:text-white shadow-lg',
-      }}/>
+
       <Sidebar isOpen={sidebarOpen} />
       <div className="md:ml-64 flex flex-col">
         <Navbar toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
