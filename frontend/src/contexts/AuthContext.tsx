@@ -35,14 +35,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       auth: { token: user.token }
     });
     
-    socket.on('plan-updated', (data) => {
-      const updatedUser = { ...data.user, token: user.token };
-      localStorage.setItem('userInfo', JSON.stringify(updatedUser));
-      setUser(updatedUser);
+    // Register user with socket for real-time updates
+    socket.emit('registerUser', user._id);
+    
+    socket.on('plan-updated', async (data) => {
+      console.log('Received plan-updated event:', data);
+      
+      // Force complete refresh from server with cache busting
+      try {
+        const { data: profile } = await api.get(`/auth/profile?t=${Date.now()}`);
+        const freshUser = { ...profile, token: user.token };
+        localStorage.setItem('userInfo', JSON.stringify(freshUser));
+        setUser(freshUser);
+        console.log('User data refreshed from server:', freshUser.subscription);
+        
+        // Force page reload to ensure all components update
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      } catch (error) {
+        console.error('Failed to refresh user data:', error);
+      }
     });
     
     return () => socket.disconnect();
-  }, [user?.token]);
+  }, [user?.token, user?._id]);
 
   const login = useCallback((userInfo: User) => {
     localStorage.setItem('userInfo', JSON.stringify(userInfo));

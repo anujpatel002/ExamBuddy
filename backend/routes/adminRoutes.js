@@ -1,6 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import { protect, admin } from '../middleware/authMiddleware.js';
+import { upgradeUserPlan } from '../controllers/adminController.js';
 import User from '../models/userModel.js';
 import Note from '../models/noteModel.js';
 import Quiz from '../models/quizModel.js';
@@ -387,6 +388,9 @@ router.put('/users/:id/subscription', protect, admin, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+// Admin upgrade user plan with time period
+router.put('/users/:id/upgrade-plan', protect, admin, upgradeUserPlan);
 
 // Update user plan and credits (legacy endpoint)
 router.put('/users/:id', protect, admin, async (req, res) => {

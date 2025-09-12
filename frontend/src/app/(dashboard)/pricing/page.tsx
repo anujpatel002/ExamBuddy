@@ -14,7 +14,7 @@ const ultraPlanId = 'plan_RGheUTXXGwRjtd';
 
 const PricingPage = () => {
   const [loading, setLoading] = useState('');
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
 
@@ -37,6 +37,13 @@ const PricingPage = () => {
       fetchSubscriptionStatus();
     }
   }, [user]);
+
+  // Refresh data when user changes (from socket updates)
+  useEffect(() => {
+    if (user) {
+      fetchSubscriptionStatus();
+    }
+  }, [user?.subscription?.endDate, user?.subscription?.plan]);
 
   const currentPlan = subscriptionStatus?.plan || user?.subscription?.plan || 'free';
   const isCurrentPlan = (plan: string) => currentPlan === plan;

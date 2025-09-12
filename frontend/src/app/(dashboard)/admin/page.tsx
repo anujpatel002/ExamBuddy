@@ -56,8 +56,16 @@ export default function AdminPanel() {
 
   const fetchData = async () => {
     try {
-      // Use basic endpoints that were working
-      const usersRes = await api.get('/admin/users');
+      // Build query parameters for filtering
+      const params = new URLSearchParams();
+      if (searchTerm) params.append('search', searchTerm);
+      if (planFilter !== 'all') params.append('planFilter', planFilter);
+      if (statusFilter !== 'all') params.append('statusFilter', statusFilter);
+      
+      const queryString = params.toString();
+      const usersUrl = queryString ? `/admin/users?${queryString}` : '/admin/users';
+      
+      const usersRes = await api.get(usersUrl);
       const statsRes = await api.get('/admin/stats');
       
       console.log('Users Response:', usersRes.data);
@@ -916,14 +924,35 @@ export default function AdminPanel() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">Edit User: {selectedUser.name}</h3>
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               const formData = new FormData(e.target as HTMLFormElement);
-              updateUserPlan(
-                selectedUser._id,
-                formData.get('plan') as string,
-                parseInt(formData.get('credits') as string)
-              );
+              const plan = formData.get('plan') as string;
+              const months = parseInt(formData.get('months') as string);
+              const action = formData.get('action') as string;
+              const credits = parseInt(formData.get('credits') as string);
+              
+              try {
+                // Use the upgrade-plan endpoint for time adjustments
+                if (months && months > 0) {
+                  await api.put(`/admin/users/${selectedUser._id}/upgrade-plan`, {
+                    plan,
+                    months,
+                    action
+                  });
+                }
+                
+                // Update credits if specified
+                if (credits !== 0) {
+                  await api.put(`/admin/users/${selectedUser._id}`, { credits });
+                }
+                
+                toast.success('User updated successfully');
+                fetchData();
+                setEditModalOpen(false);
+              } catch (error: any) {
+                toast.error(error.response?.data?.message || 'Failed to update user');
+              }
             }}>
               <div className="space-y-4">
                 <div>
@@ -934,6 +963,28 @@ export default function AdminPanel() {
                     <option value="premium">Premium</option>
                     <option value="ultra">Ultra</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Action</label>
+                  <select name="action" defaultValue="add" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md mb-3">
+                    <option value="add">Add Time</option>
+                    <option value="subtract">Remove Time</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Duration (Months)</label>
+                  <input
+                    type="number"
+                    name="months"
+                    defaultValue={1}
+                    min="1"
+                    max="120"
+                    placeholder="Enter number of months"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Current plan: {selectedUser.subscription.plan} | Remaining: {((selectedUser.subscription.endDate ? Math.ceil((new Date(selectedUser.subscription.endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0))} days
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Adjust Credits</label>
