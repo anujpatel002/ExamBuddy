@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { FiBook, FiEdit, FiTrash2, FiPlusCircle, FiX, FiCheckSquare } from 'react-icons/fi';
+import { FiBook, FiEdit, FiTrash2, FiPlusCircle, FiX, FiCheckSquare, FiEye } from 'react-icons/fi';
 import Button from '@/components/ui/Button';
 import DeleteConfirmationModal from '@/components/ui/DeleteConfirmationModal';
 import EditModal from '@/components/ui/EditModal';
@@ -184,7 +184,7 @@ export default function SubjectsPage() {
           {subjects.map((subject) => (
             <div
               key={subject._id}
-              className={`relative bg-white dark:bg-gray-800 rounded-lg shadow transition-all ${
+              className={`relative bg-white dark:bg-gray-800 rounded-lg shadow transition-all select-none ${
                 isSelectionMode ? 'cursor-pointer' : 'hover:shadow-lg'
               } ${selectedSubjects.includes(subject._id) ? 'ring-2 ring-indigo-500' : ''}`}
               onClick={() => isSelectionMode ? handleSelectSubject(subject._id) : router.push(`/subjects/${subject._id}`)}
@@ -206,6 +206,18 @@ export default function SubjectsPage() {
                 </div>
                 {!isSelectionMode && (
                   <div className="flex gap-2 pt-2 border-t dark:border-gray-700">
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/subjects/${subject._id}`);
+                      }}
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1 justify-center sm:hidden"
+                    >
+                      <FiEye className="h-4 w-4" />
+                      <span className="ml-1">View</span>
+                    </Button>
                     <Button
                       onClick={(e) => {
                         e.stopPropagation();

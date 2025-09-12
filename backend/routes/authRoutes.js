@@ -7,7 +7,9 @@ import {
   verifyEmail, 
   getUserProfile,
   getSubscriptionStatus,
-  calculateUserPlanSwitch
+  calculateUserPlanSwitch,
+  switchUserPlan,
+  calculateUpgradeCost
 } from '../controllers/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { validateAuth, validateRegister } from '../middleware/validation.js';
@@ -18,5 +20,7 @@ router.get('/verify-email/:token', verifyEmail);
 router.get('/profile', protect, getUserProfile);
 router.get('/subscription-status', protect, getSubscriptionStatus);
 router.post('/calculate-plan-switch', protect, calculateUserPlanSwitch);
+router.put('/switch-plan', protect, switchUserPlan);
+router.post('/calculate-upgrade-cost', protect, calculateUpgradeCost);
 
 export default router;

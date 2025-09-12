@@ -227,4 +227,120 @@ const calculateUserPlanSwitch = asyncHandler(async (req, res) => {
   });
 });
 
-export { registerUser, authUser, verifyEmail, getUserProfile, getSubscriptionStatus, calculateUserPlanSwitch };
+// @desc    Switch user plan (for downgrades with bonus days)
+// @route   PUT /api/auth/switch-plan
+// @access  Private
+const switchUserPlan = asyncHandler(async (req, res) => {
+  const { plan } = req.body;
+  const user = await User.findById(req.user._id);
+
+  const validPlans = ['pro', 'premium', 'ultra'];
+  if (!validPlans.includes(plan)) {
+    res.status(400);
+    throw new Error('Invalid plan specified');
+  }
+
+  const planPrices = { pro: 149, premium: 399, ultra: 699 };
+  const currentPlan = user.subscription.plan;
+  const currentPlanPrice = planPrices[currentPlan];
+  const newPlanPrice = planPrices[plan];
+  const remainingDays = user.getRemainingDays() || 0;
+
+  // Only allow downgrades (switching to cheaper plans)
+  if (!currentPlanPrice || !newPlanPrice || newPlanPrice >= currentPlanPrice || remainingDays <= 0) {
+    res.status(400);
+    throw new Error('Plan switch not allowed. Only downgrades with remaining days are permitted.');
+  }
+
+  // Calculate bonus days
+  const dailyValueCurrent = currentPlanPrice / 30;
+  const remainingValue = remainingDays * dailyValueCurrent;
+  const extraValue = remainingValue - newPlanPrice;
+  const extraDays = extraValue > 0 ? Math.floor((extraValue / newPlanPrice) * 30) : 0;
+  const totalDays = 30 + extraDays;
+
+  // Save current plan to history
+  user.subscription.planHistory.push({
+    plan: user.subscription.plan,
+    startDate: user.subscription.startDate,
+    endDate: user.subscription.endDate,
+    changedBy: 'User',
+    reason: `User switched from ${currentPlan} to ${plan} plan`
+  });
+
+  // Update subscription
+  user.subscription.previousPlan = user.subscription.plan;
+  user.subscription.plan = plan;
+  user.subscription.status = 'active';
+  user.subscription.paymentMethod = 'switch';
+  
+  const startDate = new Date();
+  startDate.setHours(0, 0, 0, 0);
+  user.subscription.startDate = startDate;
+  
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + totalDays);
+  user.subscription.endDate = endDate;
+  user.subscription.nextBillingDate = endDate;
+  
+  await user.save();
+  
+  console.log(`User ${user.email} switched from ${currentPlan} to ${plan} plan, got ${totalDays} days`);
+  
+  res.json({
+    message: `Plan switched successfully! You got ${extraDays} extra days.`,
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      subscription: user.subscription
+    }
+  });
+});
+
+// @desc    Calculate upgrade cost for user
+// @route   POST /api/auth/calculate-upgrade-cost
+// @access  Private
+const calculateUpgradeCost = asyncHandler(async (req, res) => {
+  const { newPlan } = req.body;
+  const user = await User.findById(req.user._id);
+
+  const planPrices = { pro: 149, premium: 399, ultra: 699 };
+  const currentPlan = user.subscription.plan;
+  const remainingDays = user.getRemainingDays() || 0;
+  
+  if (currentPlan === 'free' || remainingDays <= 0) {
+    return res.json({ 
+      upgradeCost: planPrices[newPlan],
+      remainingValue: 0,
+      message: `Upgrade to ${newPlan} for ₹${planPrices[newPlan]}`
+    });
+  }
+
+  const currentPlanPrice = planPrices[currentPlan];
+  const newPlanPrice = planPrices[newPlan];
+  
+  if (!currentPlanPrice || !newPlanPrice || newPlanPrice <= currentPlanPrice) {
+    return res.json({ 
+      upgradeCost: 0,
+      remainingValue: 0,
+      message: 'No upgrade cost calculation needed'
+    });
+  }
+
+  // Calculate remaining value and upgrade cost
+  const dailyValueCurrent = currentPlanPrice / 30;
+  const remainingValue = remainingDays * dailyValueCurrent;
+  const upgradeCost = newPlanPrice - remainingValue;
+
+  res.json({
+    upgradeCost: Math.max(0, Math.round(upgradeCost)),
+    remainingValue: Math.round(remainingValue),
+    currentPlan,
+    newPlan,
+    remainingDays,
+    message: `Pay ₹${Math.max(0, Math.round(upgradeCost))} to upgrade (₹${Math.round(remainingValue)} credit applied)`
+  });
+});
+
+export { registerUser, authUser, verifyEmail, getUserProfile, getSubscriptionStatus, calculateUserPlanSwitch, switchUserPlan, calculateUpgradeCost };

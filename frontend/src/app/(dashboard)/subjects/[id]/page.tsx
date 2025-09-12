@@ -11,7 +11,7 @@ import { sanitizeHTML } from '@/utils/sanitizer';
 import NoteCard from '@/components/notes/NoteCard';
 import UploadNoteModal from '@/components/notes/UploadNoteModal';
 import Button from '@/components/ui/Button';
-import { FiArrowLeft, FiEdit, FiTrash2, FiCheckSquare, FiX, FiBook, FiTarget, FiCalendar, FiColumns } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit, FiTrash2, FiCheckSquare, FiX, FiBook, FiTarget, FiCalendar, FiColumns, FiEye } from 'react-icons/fi';
 import DeleteConfirmationModal from '@/components/ui/DeleteConfirmationModal';
 import EditModal from '@/components/ui/EditModal';
 import Link from 'next/link';
@@ -192,7 +192,7 @@ export default function SubjectDetailPage() {
           {notes.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
               {notes.map(note => (
-                <div key={note._id} className={`relative bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col transition-all ${isSelectionMode ? 'cursor-pointer' : ''} ${selectedNotes.includes(note._id) ? 'ring-2 ring-indigo-500' : ''}`} onClick={() => isSelectionMode ? handleSelectNote(note._id) : router.push(`/notes/${note._id}`)}>
+                <div key={note._id} className={`relative bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col transition-all select-none ${isSelectionMode ? 'cursor-pointer' : ''} ${selectedNotes.includes(note._id) ? 'ring-2 ring-indigo-500' : ''}`} onClick={() => isSelectionMode ? handleSelectNote(note._id) : router.push(`/notes/${note._id}`)}>
                   {isSelectionMode ? (
                     <div className="p-4 flex-grow">
                       <input type="checkbox" checked={selectedNotes.includes(note._id)} readOnly className="absolute top-4 right-4 h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
@@ -207,6 +207,7 @@ export default function SubjectDetailPage() {
                   {!isSelectionMode && (
                     <div className="flex items-center gap-2 p-4 pt-0 border-t dark:border-gray-700">
                       <div className="ml-auto flex gap-2">
+                        <Button variant="secondary" size="sm" className="px-3 sm:hidden" onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/notes/${note._id}`); }}><FiEye /></Button>
                         <Button variant="secondary" size="sm" className="px-3" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditClick(note); }}><FiEdit /></Button>
                         <Button variant="secondary" size="sm" className="px-3 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/50" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteClick(note); }}><FiTrash2 /></Button>
                       </div>

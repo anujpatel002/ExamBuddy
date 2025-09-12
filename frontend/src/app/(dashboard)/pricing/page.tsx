@@ -18,6 +18,7 @@ const PricingPage = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
   const [bonusDays, setBonusDays] = useState<{[key: string]: number}>({});
+  const [upgradeCosts, setUpgradeCosts] = useState<{[key: string]: any}>({});
 
   const fetchSubscriptionStatus = async () => {
     try {
@@ -50,24 +51,31 @@ const PricingPage = () => {
   const isCurrentPlan = (plan: string) => currentPlan === plan;
   const remainingDays = subscriptionStatus?.remainingDays;
   
-  // Calculate bonus days for plan switches
+  // Calculate bonus days and upgrade costs for plan switches
   useEffect(() => {
-    if (user && currentPlan !== 'free' && remainingDays > 0) {
-      const calculateBonus = async (newPlan: string) => {
+    if (user && currentPlan !== 'free') {
+      const calculatePlanInfo = async (newPlan: string) => {
         try {
-          const { data } = await api.post('/auth/calculate-plan-switch', {
-            newPlan
-          });
-          return data.bonusDays || 0;
+          // Calculate bonus days for downgrades
+          const bonusRes = await api.post('/auth/calculate-plan-switch', { newPlan });
+          const bonusDays = bonusRes.data.bonusDays || 0;
+          
+          // Calculate upgrade costs for upgrades
+          const upgradeRes = await api.post('/auth/calculate-upgrade-cost', { newPlan });
+          const upgradeInfo = upgradeRes.data;
+          
+          return { bonusDays, upgradeInfo };
         } catch (error) {
-          return 0;
+          return { bonusDays: 0, upgradeInfo: null };
         }
       };
       
       const plans = ['pro', 'premium', 'ultra'];
       Promise.all(plans.map(async (plan) => {
-        const bonus = await calculateBonus(plan);
-        setBonusDays(prev => ({ ...prev, [plan]: bonus }));
+        const { bonusDays, upgradeInfo } = await calculatePlanInfo(plan);
+        console.log(`Plan ${plan}:`, { bonusDays, upgradeInfo });
+        setBonusDays(prev => ({ ...prev, [plan]: bonusDays }));
+        setUpgradeCosts(prev => ({ ...prev, [plan]: upgradeInfo }));
       }));
     }
   }, [user, currentPlan, remainingDays]);
@@ -95,12 +103,11 @@ const PricingPage = () => {
         }
         
         toast.loading('Switching your plan...', { id: 'plan-switch' });
-        const { data } = await api.put(`/admin/users/${user._id}/upgrade-plan`, {
-          plan: targetPlan,
-          months: 1 // This will be overridden by bonus days calculation
+        const { data } = await api.put('/auth/switch-plan', {
+          plan: targetPlan
         });
         toast.dismiss('plan-switch');
-        toast.success(`Plan switched successfully! You got ${bonusDays[targetPlan]} extra days.`);
+        toast.success(data.message || `Plan switched successfully! You got ${bonusDays[targetPlan]} extra days.`);
         
         setTimeout(() => {
           fetchSubscriptionStatus();
@@ -260,7 +267,9 @@ const PricingPage = () => {
           >
             {isCurrentPlan('pro') ? (
               remainingDays ? `Current Plan (${remainingDays} days left)` : 'Your Current Plan'
-            ) : bonusDays.pro > 0 ? `Switch + Get ${bonusDays.pro} Extra Days` : 'Upgrade to Pro'}
+            ) : bonusDays.pro > 0 ? `Switch + Get ${bonusDays.pro} Extra Days` : 
+              (upgradeCosts.pro?.upgradeCost !== undefined && upgradeCosts.pro.upgradeCost >= 0) ? 
+                `Upgrade for ₹${upgradeCosts.pro.upgradeCost}` : 'Upgrade to Pro'}
           </Button>
         </div>
 
@@ -286,7 +295,9 @@ const PricingPage = () => {
           >
             {isCurrentPlan('premium') ? (
               remainingDays ? `Current Plan (${remainingDays} days left)` : 'Your Current Plan'
-            ) : bonusDays.premium > 0 ? `Switch + Get ${bonusDays.premium} Extra Days` : 'Upgrade to Premium'}
+            ) : bonusDays.premium > 0 ? `Switch + Get ${bonusDays.premium} Extra Days` : 
+              (upgradeCosts.premium?.upgradeCost !== undefined && upgradeCosts.premium.upgradeCost >= 0) ? 
+                `Upgrade for ₹${upgradeCosts.premium.upgradeCost}` : 'Upgrade to Premium'}
           </Button>
         </div>
         
@@ -312,7 +323,9 @@ const PricingPage = () => {
           >
             {isCurrentPlan('ultra') ? (
               remainingDays ? `Current Plan (${remainingDays} days left)` : 'Your Current Plan'
-            ) : bonusDays.ultra > 0 ? `Switch + Get ${bonusDays.ultra} Extra Days` : 'Upgrade to Ultra'}
+            ) : bonusDays.ultra > 0 ? `Switch + Get ${bonusDays.ultra} Extra Days` : 
+              (upgradeCosts.ultra?.upgradeCost !== undefined && upgradeCosts.ultra.upgradeCost >= 0) ? 
+                `Upgrade for ₹${upgradeCosts.ultra.upgradeCost}` : 'Upgrade to Ultra'}
           </Button>
         </div>
       </div>
