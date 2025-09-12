@@ -189,4 +189,42 @@ const getSubscriptionStatus = asyncHandler(async (req, res) => {
     }
 });
 
-export { registerUser, authUser, verifyEmail, getUserProfile, getSubscriptionStatus };
+// @desc    Calculate plan switch bonus days for current user
+// @route   POST /api/auth/calculate-plan-switch
+// @access  Private
+const calculateUserPlanSwitch = asyncHandler(async (req, res) => {
+  const { newPlan } = req.body;
+  const user = await User.findById(req.user._id);
+
+  const planPrices = { pro: 149, premium: 399, ultra: 699 };
+  const currentPlan = user.subscription.plan;
+  const remainingDays = user.getRemainingDays() || 0;
+  
+  if (currentPlan === 'free' || remainingDays <= 0) {
+    return res.json({ bonusDays: 0, message: 'No bonus days available' });
+  }
+
+  const currentPlanPrice = planPrices[currentPlan];
+  const newPlanPrice = planPrices[newPlan];
+  
+  if (!currentPlanPrice || !newPlanPrice || newPlanPrice >= currentPlanPrice) {
+    return res.json({ bonusDays: 0, message: 'No bonus days for upgrade or same plan' });
+  }
+
+  // Calculate remaining value and extra days after base plan cost
+  const dailyValueCurrent = currentPlanPrice / 30;
+  const remainingValue = remainingDays * dailyValueCurrent;
+  const extraValue = remainingValue - newPlanPrice; // Value after deducting base plan cost
+  const extraDays = extraValue > 0 ? Math.floor((extraValue / newPlanPrice) * 30) : 0;
+  const bonusDays = extraDays; // Only show extra days, not including base 30 days
+
+  res.json({
+    bonusDays,
+    currentPlan,
+    newPlan,
+    remainingDays,
+    message: `Switching from ${currentPlan} to ${newPlan} will give you ${bonusDays} extra days`
+  });
+});
+
+export { registerUser, authUser, verifyEmail, getUserProfile, getSubscriptionStatus, calculateUserPlanSwitch };

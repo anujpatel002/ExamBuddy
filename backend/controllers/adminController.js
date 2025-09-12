@@ -98,27 +98,61 @@ const upgradeUserPlan = asyncHandler(async (req, res) => {
   user.subscription.paymentMethod = 'admin';
   
   if (plan !== 'free') {
-    // Calculate new end date by adding/subtracting months
-    let currentEndDate = user.subscription.endDate || new Date();
+    let newEndDate;
     
-    // If no existing end date or it's in the past, start from now
-    if (!user.subscription.endDate || currentEndDate < new Date()) {
-      currentEndDate = new Date();
-      currentEndDate.setHours(0, 0, 0, 0);
-      user.subscription.startDate = currentEndDate;
-    }
-    
-    const newEndDate = new Date(currentEndDate);
-    if (action === 'subtract') {
-      newEndDate.setMonth(newEndDate.getMonth() - parseInt(months));
+    // Check if this is a plan switch (different plan) vs time adjustment (same plan)
+    if (plan !== user.subscription.plan && user.subscription.plan !== 'free') {
+      // Plan switch - calculate bonus days
+      const planPrices = { pro: 149, premium: 399, ultra: 699 };
+      const currentPlanPrice = planPrices[user.subscription.plan];
+      const newPlanPrice = planPrices[plan];
+      const remainingDays = user.getRemainingDays() || 0;
+      
+      if (currentPlanPrice && newPlanPrice && remainingDays > 0 && newPlanPrice < currentPlanPrice) {
+        // Downgrade - calculate bonus days
+        const dailyValueCurrent = currentPlanPrice / 30;
+        const remainingValue = remainingDays * dailyValueCurrent;
+        const extraValue = remainingValue - newPlanPrice; // Value after deducting base plan cost
+        const extraDays = extraValue > 0 ? Math.floor((extraValue / newPlanPrice) * 30) : 0;
+        const totalDays = 30 + extraDays; // Base 30 days + extra days
+        const bonusDays = totalDays;
+        
+        newEndDate = new Date();
+        newEndDate.setHours(0, 0, 0, 0);
+        newEndDate.setDate(newEndDate.getDate() + totalDays);
+        
+        user.subscription.startDate = new Date();
+        user.subscription.startDate.setHours(0, 0, 0, 0);
+      } else {
+        // Upgrade or same price - start fresh with specified months
+        newEndDate = new Date();
+        newEndDate.setHours(0, 0, 0, 0);
+        newEndDate.setMonth(newEndDate.getMonth() + parseInt(months));
+        
+        user.subscription.startDate = new Date();
+        user.subscription.startDate.setHours(0, 0, 0, 0);
+      }
     } else {
-      newEndDate.setMonth(newEndDate.getMonth() + parseInt(months));
-    }
-    
-    // Ensure end date is not in the past
-    const now = new Date();
-    if (newEndDate < now) {
-      newEndDate.setTime(now.getTime());
+      // Same plan - add/subtract time
+      let currentEndDate = user.subscription.endDate || new Date();
+      
+      if (!user.subscription.endDate || currentEndDate < new Date()) {
+        currentEndDate = new Date();
+        currentEndDate.setHours(0, 0, 0, 0);
+        user.subscription.startDate = currentEndDate;
+      }
+      
+      newEndDate = new Date(currentEndDate);
+      if (action === 'subtract') {
+        newEndDate.setMonth(newEndDate.getMonth() - parseInt(months));
+      } else {
+        newEndDate.setMonth(newEndDate.getMonth() + parseInt(months));
+      }
+      
+      const now = new Date();
+      if (newEndDate < now) {
+        newEndDate.setTime(now.getTime());
+      }
     }
     
     user.subscription.endDate = newEndDate;
@@ -176,4 +210,47 @@ const upgradeUserPlan = asyncHandler(async (req, res) => {
   });
 });
 
-export { getUsers, getAllNotes, approveNote, upgradeUserPlan };
+// @desc    Calculate plan switch bonus days
+// @route   POST /api/admin/calculate-plan-switch
+// @access  Private/Admin
+const calculatePlanSwitch = asyncHandler(async (req, res) => {
+  const { userId, newPlan } = req.body;
+  const user = await User.findById(userId);
+
+  if (!user) {
+    res.status(404);
+    throw new Error('User not found');
+  }
+
+  const planPrices = { pro: 149, premium: 399, ultra: 699 };
+  const currentPlan = user.subscription.plan;
+  const remainingDays = user.getRemainingDays() || 0;
+  
+  if (currentPlan === 'free' || remainingDays <= 0) {
+    return res.json({ bonusDays: 0, message: 'No bonus days available' });
+  }
+
+  const currentPlanPrice = planPrices[currentPlan];
+  const newPlanPrice = planPrices[newPlan];
+  
+  if (!currentPlanPrice || !newPlanPrice || newPlanPrice >= currentPlanPrice) {
+    return res.json({ bonusDays: 0, message: 'No bonus days for upgrade or same plan' });
+  }
+
+  // Calculate remaining value and extra days after base plan cost
+  const dailyValueCurrent = currentPlanPrice / 30;
+  const remainingValue = remainingDays * dailyValueCurrent;
+  const extraValue = remainingValue - newPlanPrice; // Value after deducting base plan cost
+  const extraDays = extraValue > 0 ? Math.floor((extraValue / newPlanPrice) * 30) : 0;
+  const bonusDays = extraDays; // Only show extra days for display
+
+  res.json({
+    bonusDays,
+    currentPlan,
+    newPlan,
+    remainingDays,
+    message: `Switching from ${currentPlan} to ${newPlan} will give you ${bonusDays} extra days`
+  });
+});
+
+export { getUsers, getAllNotes, approveNote, upgradeUserPlan, calculatePlanSwitch };

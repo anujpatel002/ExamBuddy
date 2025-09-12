@@ -1,7 +1,7 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import { protect, admin } from '../middleware/authMiddleware.js';
-import { upgradeUserPlan } from '../controllers/adminController.js';
+import { upgradeUserPlan, calculatePlanSwitch } from '../controllers/adminController.js';
 import User from '../models/userModel.js';
 import Note from '../models/noteModel.js';
 import Quiz from '../models/quizModel.js';
@@ -391,6 +391,9 @@ router.put('/users/:id/subscription', protect, admin, async (req, res) => {
 
 // Admin upgrade user plan with time period
 router.put('/users/:id/upgrade-plan', protect, admin, upgradeUserPlan);
+
+// Calculate plan switch bonus days
+router.post('/calculate-plan-switch', protect, admin, calculatePlanSwitch);
 
 // Update user plan and credits (legacy endpoint)
 router.put('/users/:id', protect, admin, async (req, res) => {

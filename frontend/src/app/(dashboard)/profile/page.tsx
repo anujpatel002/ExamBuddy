@@ -66,8 +66,7 @@ const ProfilePage = () => {
   };
 
   const handleManageSubscription = () => {
-    const razorpayPortalUrl = 'https://dashboard.razorpay.com/app/subscriptions';
-    window.open(razorpayPortalUrl, '_blank');
+    router.push('/pricing');
   };
   
   if (!user) {
@@ -176,11 +175,9 @@ const ProfilePage = () => {
               </div>
             )}
           </div>
-          {isSubscribed ? (
-            <Button onClick={handleManageSubscription} variant="secondary">Manage Subscription</Button>
-          ) : (
-             <Button onClick={() => router.push('/pricing')}>Upgrade Plan</Button>
-          )}
+          <Button onClick={() => router.push('/pricing')}>
+            {isSubscribed ? 'Manage Subscription' : 'Upgrade Plan'}
+          </Button>
         </div>
       </div>
 

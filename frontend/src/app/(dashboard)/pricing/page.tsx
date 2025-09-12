@@ -17,6 +17,7 @@ const PricingPage = () => {
   const { user, logout, refreshUser } = useAuth();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
+  const [bonusDays, setBonusDays] = useState<{[key: string]: number}>({});
 
   const fetchSubscriptionStatus = async () => {
     try {
@@ -48,110 +49,161 @@ const PricingPage = () => {
   const currentPlan = subscriptionStatus?.plan || user?.subscription?.plan || 'free';
   const isCurrentPlan = (plan: string) => currentPlan === plan;
   const remainingDays = subscriptionStatus?.remainingDays;
+  
+  // Calculate bonus days for plan switches
+  useEffect(() => {
+    if (user && currentPlan !== 'free' && remainingDays > 0) {
+      const calculateBonus = async (newPlan: string) => {
+        try {
+          const { data } = await api.post('/auth/calculate-plan-switch', {
+            newPlan
+          });
+          return data.bonusDays || 0;
+        } catch (error) {
+          return 0;
+        }
+      };
+      
+      const plans = ['pro', 'premium', 'ultra'];
+      Promise.all(plans.map(async (plan) => {
+        const bonus = await calculateBonus(plan);
+        setBonusDays(prev => ({ ...prev, [plan]: bonus }));
+      }));
+    }
+  }, [user, currentPlan, remainingDays]);
 
-  const handleSubscribe = async (plan_id: string) => {
+  const handlePlanChange = async (targetPlan: string, plan_id: string) => {
     if (!user?.isVerified) {
       toast.error('Please verify your email before subscribing');
       return;
     }
     
     setLoading(plan_id);
+    
     try {
-      toast.loading('Initializing payment...', { id: 'payment-init' });
-      const { data } = await api.post('/payments/create-subscription', { plan_id });
-      toast.dismiss('payment-init');
+      // Check if this is a downgrade with bonus days
+      const planPrices = { pro: 149, premium: 399, ultra: 699 };
+      const currentPlanPrice = planPrices[currentPlan as keyof typeof planPrices];
+      const targetPlanPrice = planPrices[targetPlan as keyof typeof planPrices];
       
-      const planNames = {
-        'plan_RDXlqcfQJ71hbm': 'Pro',
-        'plan_RDXm8g4DU0U19i': 'Premium', 
-        'plan_REkLuEt6XCuh08': 'Ultra'
-      };
-      
-      const options = {
-        key: data.key_id,
-        subscription_id: data.subscriptionId,
-        name: 'ExamBuddy Subscription',
-        description: `${planNames[plan_id as keyof typeof planNames]} Plan Subscription`,
-        handler: function (response: any) {
-          console.log('Payment successful:', response);
-          toast.success('Payment successful! Updating your plan...');
-          
-          // Refresh subscription status after successful payment
-          setTimeout(() => {
-            fetchSubscriptionStatus();
-            setShowSuccessModal(true);
-          }, 2000);
-        },
-        modal: {
-          ondismiss: function() {
-            console.log('Payment modal closed');
-            toast.error('Payment cancelled');
-          }
-        },
-        prefill: {
-            name: user?.name,
-            email: user?.email,
-            contact: user?.phone || ''
-        },
-        method: {
-          upi: true,
-          card: true,
-          netbanking: true,
-          wallet: true
-        },
-        config: {
-          display: {
-            blocks: {
-              utib: {
-                name: 'Pay using UPI',
-                instruments: [
-                  {
-                    method: 'upi'
-                  }
-                ]
-              },
-              other: {
-                name: 'Other Payment Methods',
-                instruments: [
-                  {
-                    method: 'card'
-                  },
-                  {
-                    method: 'netbanking'
-                  },
-                  {
-                    method: 'wallet'
-                  }
-                ]
-              }
-            },
-            sequence: ['block.utib', 'block.other'],
-            preferences: {
-              show_default_blocks: true
-            }
-          }
-        },
-        theme: {
-            color: "#4f46e5"
-        },
-        retry: {
-          enabled: true,
-          max_count: 3
+      if (currentPlan !== 'free' && remainingDays > 0 && targetPlanPrice < currentPlanPrice) {
+        // Downgrade - apply bonus days without payment
+        const confirmSwitch = confirm(`You will switch to ${targetPlan} plan and get ${bonusDays[targetPlan]} extra days instead of a refund. Continue?`);
+        if (!confirmSwitch) {
+          setLoading('');
+          return;
         }
-      };
-      
-      const rzp = new (window as any).Razorpay(options);
-      rzp.on('payment.failed', function (response: any) {
-        console.error('Payment failed:', response.error);
-        toast.error(`Payment failed: ${response.error.description}`);
-      });
-      
-      rzp.open();
+        
+        toast.loading('Switching your plan...', { id: 'plan-switch' });
+        const { data } = await api.put(`/admin/users/${user._id}/upgrade-plan`, {
+          plan: targetPlan,
+          months: 1 // This will be overridden by bonus days calculation
+        });
+        toast.dismiss('plan-switch');
+        toast.success(`Plan switched successfully! You got ${bonusDays[targetPlan]} extra days.`);
+        
+        setTimeout(() => {
+          fetchSubscriptionStatus();
+          refreshUser();
+        }, 1000);
+      } else {
+        // Upgrade or new subscription - process payment
+        toast.loading('Initializing payment...', { id: 'payment-init' });
+        const { data } = await api.post('/payments/create-subscription', { plan_id });
+        toast.dismiss('payment-init');
+        
+        const planNames = {
+          [proPlanId]: 'Pro',
+          [premiumPlanId]: 'Premium', 
+          [ultraPlanId]: 'Ultra'
+        };
+        
+        const options = {
+          key: data.key_id,
+          subscription_id: data.subscriptionId,
+          name: 'ExamBuddy Subscription',
+          description: `${planNames[plan_id as keyof typeof planNames]} Plan Subscription`,
+          handler: function (response: any) {
+            console.log('Payment successful:', response);
+            toast.success('Payment successful! Updating your plan...');
+            
+            setTimeout(() => {
+              fetchSubscriptionStatus();
+              setShowSuccessModal(true);
+            }, 2000);
+          },
+          modal: {
+            ondismiss: function() {
+              console.log('Payment modal closed');
+              toast.error('Payment cancelled');
+            }
+          },
+          prefill: {
+              name: user?.name,
+              email: user?.email,
+              contact: user?.phone || ''
+          },
+          method: {
+            upi: true,
+            card: true,
+            netbanking: true,
+            wallet: true
+          },
+          config: {
+            display: {
+              blocks: {
+                utib: {
+                  name: 'Pay using UPI',
+                  instruments: [
+                    {
+                      method: 'upi'
+                    }
+                  ]
+                },
+                other: {
+                  name: 'Other Payment Methods',
+                  instruments: [
+                    {
+                      method: 'card'
+                    },
+                    {
+                      method: 'netbanking'
+                    },
+                    {
+                      method: 'wallet'
+                    }
+                  ]
+                }
+              },
+              sequence: ['block.utib', 'block.other'],
+              preferences: {
+                show_default_blocks: true
+              }
+            }
+          },
+          theme: {
+              color: "#4f46e5"
+          },
+          retry: {
+            enabled: true,
+            max_count: 3
+          }
+        };
+        
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', function (response: any) {
+          console.error('Payment failed:', response.error);
+          toast.error(`Payment failed: ${response.error.description}`);
+        });
+        
+        rzp.open();
+      }
 
     } catch (error: any) {
       toast.dismiss('payment-init');
-      console.error('Subscription error:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to start subscription. Please try again.';
+      toast.dismiss('plan-switch');
+      console.error('Plan change error:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to change plan. Please try again.';
       toast.error(errorMessage);
     } finally {
       setLoading('');
@@ -201,14 +253,14 @@ const PricingPage = () => {
             <li className="flex items-center gap-2"><FiCheck className="text-green-500"/>100 AI Credits / month</li>
           </ul>
           <Button 
-            onClick={() => handleSubscribe(proPlanId)} 
+            onClick={() => handlePlanChange('pro', proPlanId)} 
             isLoading={loading === proPlanId} 
             className={`mt-auto w-full ${isCurrentPlan('pro') ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
             disabled={isCurrentPlan('pro')}
           >
             {isCurrentPlan('pro') ? (
               remainingDays ? `Current Plan (${remainingDays} days left)` : 'Your Current Plan'
-            ) : 'Upgrade to Pro'}
+            ) : bonusDays.pro > 0 ? `Switch + Get ${bonusDays.pro} Extra Days` : 'Upgrade to Pro'}
           </Button>
         </div>
 
@@ -227,14 +279,14 @@ const PricingPage = () => {
             <li className="flex items-center gap-2"><FiCheck className="text-green-500"/>300 AI Credits / month</li>
           </ul>
           <Button 
-            onClick={() => handleSubscribe(premiumPlanId)} 
+            onClick={() => handlePlanChange('premium', premiumPlanId)} 
             isLoading={loading === premiumPlanId} 
             className={`mt-auto w-full ${isCurrentPlan('premium') ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
             disabled={isCurrentPlan('premium')}
           >
             {isCurrentPlan('premium') ? (
               remainingDays ? `Current Plan (${remainingDays} days left)` : 'Your Current Plan'
-            ) : 'Upgrade to Premium'}
+            ) : bonusDays.premium > 0 ? `Switch + Get ${bonusDays.premium} Extra Days` : 'Upgrade to Premium'}
           </Button>
         </div>
         
@@ -253,14 +305,14 @@ const PricingPage = () => {
             <li className="flex items-center gap-2"><FiCheck className="text-green-500"/>1000 AI Credits / month</li>
           </ul>
           <Button 
-            onClick={() => handleSubscribe(ultraPlanId)} 
+            onClick={() => handlePlanChange('ultra', ultraPlanId)} 
             isLoading={loading === ultraPlanId} 
             className={`mt-auto w-full ${isCurrentPlan('ultra') ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}
             disabled={isCurrentPlan('ultra')}
           >
             {isCurrentPlan('ultra') ? (
               remainingDays ? `Current Plan (${remainingDays} days left)` : 'Your Current Plan'
-            ) : 'Upgrade to Ultra'}
+            ) : bonusDays.ultra > 0 ? `Switch + Get ${bonusDays.ultra} Extra Days` : 'Upgrade to Ultra'}
           </Button>
         </div>
       </div>
