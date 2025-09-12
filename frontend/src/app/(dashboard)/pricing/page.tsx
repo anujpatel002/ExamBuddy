@@ -8,9 +8,9 @@ import { useAuth } from '@/hooks/useAuth';
 import SuccessModal from '@/components/ui/SuccessModal';
 
 // IMPORTANT: Replace these with your actual Plan IDs from the Razorpay Dashboard
-const proPlanId = 'plan_RDXlqcfQJ71hbm'; 
-const premiumPlanId = 'plan_RDXm8g4DU0U19i';
-const ultraPlanId = 'plan_REkLuEt6XCuh08';
+const proPlanId = 'plan_RGhg2eKjTI6pbx'; 
+const premiumPlanId = 'plan_RGhfomkmMSybGn';
+const ultraPlanId = 'plan_RGheUTXXGwRjtd';
 
 const PricingPage = () => {
   const [loading, setLoading] = useState('');
@@ -43,20 +43,43 @@ const PricingPage = () => {
   const remainingDays = subscriptionStatus?.remainingDays;
 
   const handleSubscribe = async (plan_id: string) => {
+    if (!user?.isVerified) {
+      toast.error('Please verify your email before subscribing');
+      return;
+    }
+    
     setLoading(plan_id);
     try {
+      toast.loading('Initializing payment...', { id: 'payment-init' });
       const { data } = await api.post('/payments/create-subscription', { plan_id });
+      toast.dismiss('payment-init');
+      
+      const planNames = {
+        'plan_RDXlqcfQJ71hbm': 'Pro',
+        'plan_RDXm8g4DU0U19i': 'Premium', 
+        'plan_REkLuEt6XCuh08': 'Ultra'
+      };
       
       const options = {
         key: data.key_id,
         subscription_id: data.subscriptionId,
         name: 'ExamBuddy Subscription',
+        description: `${planNames[plan_id as keyof typeof planNames]} Plan Subscription`,
         handler: function (response: any) {
+          console.log('Payment successful:', response);
+          toast.success('Payment successful! Updating your plan...');
+          
           // Refresh subscription status after successful payment
           setTimeout(() => {
             fetchSubscriptionStatus();
+            setShowSuccessModal(true);
           }, 2000);
-          setShowSuccessModal(true);
+        },
+        modal: {
+          ondismiss: function() {
+            console.log('Payment modal closed');
+            toast.error('Payment cancelled');
+          }
         },
         prefill: {
             name: user?.name,
@@ -64,14 +87,26 @@ const PricingPage = () => {
         },
         theme: {
             color: "#4f46e5"
+        },
+        retry: {
+          enabled: true,
+          max_count: 3
         }
       };
       
       const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (response: any) {
+        console.error('Payment failed:', response.error);
+        toast.error(`Payment failed: ${response.error.description}`);
+      });
+      
       rzp.open();
 
-    } catch (error) {
-      toast.error('Failed to start subscription. Please try again.');
+    } catch (error: any) {
+      toast.dismiss('payment-init');
+      console.error('Subscription error:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to start subscription. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setLoading('');
     }
