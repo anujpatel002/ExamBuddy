@@ -84,6 +84,45 @@ const PricingPage = () => {
         prefill: {
             name: user?.name,
             email: user?.email,
+            contact: user?.phone || ''
+        },
+        method: {
+          upi: true,
+          card: true,
+          netbanking: true,
+          wallet: true
+        },
+        config: {
+          display: {
+            blocks: {
+              utib: {
+                name: 'Pay using UPI',
+                instruments: [
+                  {
+                    method: 'upi'
+                  }
+                ]
+              },
+              other: {
+                name: 'Other Payment Methods',
+                instruments: [
+                  {
+                    method: 'card'
+                  },
+                  {
+                    method: 'netbanking'
+                  },
+                  {
+                    method: 'wallet'
+                  }
+                ]
+              }
+            },
+            sequence: ['block.utib', 'block.other'],
+            preferences: {
+              show_default_blocks: true
+            }
+          }
         },
         theme: {
             color: "#4f46e5"
@@ -131,7 +170,7 @@ const PricingPage = () => {
           </ul>
           <Button 
             variant={isCurrentPlan('free') ? 'primary' : 'secondary'} 
-            className="mt-auto w-full" 
+            className={`mt-auto w-full ${isCurrentPlan('free') ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white'}`}
             disabled={isCurrentPlan('free')}
           >
             {isCurrentPlan('free') ? (
@@ -157,8 +196,7 @@ const PricingPage = () => {
           <Button 
             onClick={() => handleSubscribe(proPlanId)} 
             isLoading={loading === proPlanId} 
-            className="mt-auto w-full"
-            variant={isCurrentPlan('pro') ? 'primary' : 'default'}
+            className={`mt-auto w-full ${isCurrentPlan('pro') ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
             disabled={isCurrentPlan('pro')}
           >
             {isCurrentPlan('pro') ? (
@@ -184,8 +222,7 @@ const PricingPage = () => {
           <Button 
             onClick={() => handleSubscribe(premiumPlanId)} 
             isLoading={loading === premiumPlanId} 
-            className="mt-auto w-full"
-            variant={isCurrentPlan('premium') ? 'primary' : 'default'}
+            className={`mt-auto w-full ${isCurrentPlan('premium') ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
             disabled={isCurrentPlan('premium')}
           >
             {isCurrentPlan('premium') ? (
@@ -211,8 +248,7 @@ const PricingPage = () => {
           <Button 
             onClick={() => handleSubscribe(ultraPlanId)} 
             isLoading={loading === ultraPlanId} 
-            className="mt-auto w-full"
-            variant={isCurrentPlan('ultra') ? 'primary' : 'default'}
+            className={`mt-auto w-full ${isCurrentPlan('ultra') ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-orange-600 hover:bg-orange-700 text-white'}`}
             disabled={isCurrentPlan('ultra')}
           >
             {isCurrentPlan('ultra') ? (
