@@ -114,96 +114,18 @@ const PricingPage = () => {
           refreshUser();
         }, 1000);
       } else {
-        // Upgrade or new subscription - process payment
-        toast.loading('Initializing payment...', { id: 'payment-init' });
-        const { data } = await api.post('/payments/create-subscription', { plan_id });
-        toast.dismiss('payment-init');
-        
+        // Redirect to WhatsApp for manual plan upgrade/downgrade
         const planNames = {
           [proPlanId]: 'Pro',
           [premiumPlanId]: 'Premium', 
           [ultraPlanId]: 'Ultra'
         };
         
-        const options = {
-          key: data.key_id,
-          subscription_id: data.subscriptionId,
-          name: 'ExamBuddy Subscription',
-          description: `${planNames[plan_id as keyof typeof planNames]} Plan Subscription`,
-          handler: function (response: any) {
-            console.log('Payment successful:', response);
-            toast.success('Payment successful! Updating your plan...');
-            
-            setTimeout(() => {
-              fetchSubscriptionStatus();
-              setShowSuccessModal(true);
-            }, 2000);
-          },
-          modal: {
-            ondismiss: function() {
-              console.log('Payment modal closed');
-              toast.error('Payment cancelled');
-            }
-          },
-          prefill: {
-              name: user?.name,
-              email: user?.email,
-              contact: user?.phone || ''
-          },
-          method: {
-            upi: true,
-            card: true,
-            netbanking: true,
-            wallet: true
-          },
-          config: {
-            display: {
-              blocks: {
-                utib: {
-                  name: 'Pay using UPI',
-                  instruments: [
-                    {
-                      method: 'upi'
-                    }
-                  ]
-                },
-                other: {
-                  name: 'Other Payment Methods',
-                  instruments: [
-                    {
-                      method: 'card'
-                    },
-                    {
-                      method: 'netbanking'
-                    },
-                    {
-                      method: 'wallet'
-                    }
-                  ]
-                }
-              },
-              sequence: ['block.utib', 'block.other'],
-              preferences: {
-                show_default_blocks: true
-              }
-            }
-          },
-          theme: {
-              color: "#4f46e5"
-          },
-          retry: {
-            enabled: true,
-            max_count: 3
-          }
-        };
+        const planName = planNames[plan_id as keyof typeof planNames];
+        const message = `Hi, I want to upgrade to ${planName} plan.\n\nName: ${user?.name}\nEmail: ${user?.email}\nCurrent Plan: ${currentPlan}\nRequested Plan: ${targetPlan}`;
+        const whatsappUrl = `https://wa.me/916353432070?text=${encodeURIComponent(message)}`;
         
-        const rzp = new (window as any).Razorpay(options);
-        rzp.on('payment.failed', function (response: any) {
-          console.error('Payment failed:', response.error);
-          toast.error(`Payment failed: ${response.error.description}`);
-        });
-        
-        rzp.open();
+        window.open(whatsappUrl, '_blank');
       }
 
     } catch (error: any) {

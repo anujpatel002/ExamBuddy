@@ -23,10 +23,10 @@ const createSubscription = asyncHandler(async (req, res) => {
   
   // Validate plan_id
   const validPlanIds = [
-    process.env.RAZORPAY_PRO_PLAN_ID,
-    process.env.RAZORPAY_PREMIUM_PLAN_ID,
-    process.env.RAZORPAY_ULTRA_PLAN_ID
-  ].filter(Boolean);
+    'plan_RGhg2eKjTI6pbx', // Pro
+    'plan_RGhfomkmMSybGn', // Premium
+    'plan_RGheUTXXGwRjtd'  // Ultra
+  ];
   
   if (!plan_id || !validPlanIds.includes(plan_id)) {
     res.status(400);

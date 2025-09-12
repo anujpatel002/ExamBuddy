@@ -272,7 +272,7 @@ const switchUserPlan = asyncHandler(async (req, res) => {
   user.subscription.previousPlan = user.subscription.plan;
   user.subscription.plan = plan;
   user.subscription.status = 'active';
-  user.subscription.paymentMethod = 'switch';
+  user.subscription.paymentMethod = 'manual';
   
   const startDate = new Date();
   startDate.setHours(0, 0, 0, 0);
