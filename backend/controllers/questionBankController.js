@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import Subject from '../models/subjectModel.js';
 import Note from '../models/noteModel.js';
+import User from '../models/userModel.js';
 import { extractTopics, generateQuestionsForTopic } from '../services/aiService.js';
 import { parseAndSanitize } from '../utils/markdownParser.js';
 
@@ -40,6 +41,9 @@ const generateQuestionBank = asyncHandler(async (req, res) => {
 
   subject.questionBank = questionBank;
   await subject.save();
+  
+  // Update user credits
+  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
 
   res.status(201).json(subject.questionBank);
 });

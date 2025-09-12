@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { sanitizeHTML } from '@/utils/sanitizer';
 import Button from '@/components/ui/Button';
 import Flashcard from '@/components/notes/Flashcard';
@@ -37,6 +38,7 @@ type ActiveTab = 'summary' | 'flashcards' | 'practice' | 'mcq' | 'mindmap' | 'ch
 export default function NoteDetailPage() {
   const { id: noteId } = useParams();
   const router = useRouter();
+  const { refreshUser } = useAuth();
   const [note, setNote] = useState<INote | null>(null);
   const [quizzes, setQuizzes] = useState<IQuiz[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +93,7 @@ export default function NoteDetailPage() {
       await api.post(endpoint, payload);
       toast.success(`Content generated successfully!`);
       await fetchNoteAndQuizzes();
+      await refreshUser(); // Refresh user data to update credits
     } catch (error: any) {
       toast.error(error.response?.data?.message || `Failed to generate content.`);
     } finally {
@@ -104,6 +107,7 @@ export default function NoteDetailPage() {
       await api.post(`/ai/quiz/${noteId}`, { quizName, questionCount });
       toast.success(`Quiz "${quizName}" generated successfully!`);
       await fetchNoteAndQuizzes();
+      await refreshUser(); // Refresh user data to update credits
     } catch (error: any) {
       toast.error(error.response?.data?.message || `Failed to generate quiz.`);
     } finally {

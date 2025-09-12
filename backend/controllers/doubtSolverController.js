@@ -2,6 +2,7 @@ import asyncHandler from 'express-async-handler';
 import { findRelevantDocuments } from '../utils/vectorStore.js';
 import { answerDoubt } from '../services/aiService.js';
 import Note from '../models/noteModel.js';
+import User from '../models/userModel.js';
 
 const askQuestion = asyncHandler(async (req, res) => {
     const { noteId, question } = req.body;
@@ -49,6 +50,9 @@ const askQuestion = asyncHandler(async (req, res) => {
 
     // 4. Generate answer using comprehensive context
     const answer = await answerDoubt(context, question);
+    
+    // 5. Update user credits
+    await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
 
     res.json({ answer });
 });

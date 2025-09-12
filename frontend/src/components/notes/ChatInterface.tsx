@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import api from '@/lib/api';
 import { FiSend } from 'react-icons/fi';
 import Button from '../ui/Button';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Message {
   sender: 'user' | 'ai';
@@ -14,6 +15,7 @@ const ChatInterface = ({ noteId }: { noteId: string }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
+  const { refreshUser } = useAuth();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -34,6 +36,7 @@ const ChatInterface = ({ noteId }: { noteId: string }) => {
       const { data } = await api.post('/doubt-solver/ask', { noteId, question: input });
       const aiMessage: Message = { sender: 'ai', text: data.answer };
       setMessages(prev => [...prev, aiMessage]);
+      await refreshUser(); // Refresh user data to update credits
     } catch (error: any) {
       const errorMessage: Message = { sender: 'ai', text: error.response?.data?.message || "Sorry, I couldn't process that. Please try again." };
       setMessages(prev => [...prev, errorMessage]);

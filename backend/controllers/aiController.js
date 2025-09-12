@@ -31,6 +31,10 @@ const createSummary = asyncHandler(async (req, res) => {
     const summaryMarkdown = await generateSummary(note.textContent);
     note.summary = parseAndSanitize(summaryMarkdown); 
     await note.save();
+    
+    // Update user credits
+    await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+    
     res.json({ summary: note.summary });
 });
 
@@ -43,6 +47,10 @@ const createFlashcards = asyncHandler(async (req, res) => {
     const newFlashcards = await generateFlashcards(note.textContent, note.flashcards.length);
     note.flashcards.push(...newFlashcards);
     await note.save();
+    
+    // Update user credits
+    await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+    
     res.json({ flashcards: note.flashcards });
 });
 
@@ -80,6 +88,10 @@ const createQuiz = asyncHandler(async (req, res) => {
         descriptiveQuestions: quizData.descriptive,
     });
     const createdQuiz = await quiz.save();
+    
+    // Update user credits
+    await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+    
     res.status(201).json(createdQuiz);
 });
 
@@ -97,6 +109,10 @@ const createCategorizedQuestions = asyncHandler(async (req, res) => {
   }
   note.categorizedQuestions = questions;
   await note.save();
+  
+  // Update user credits
+  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+  
   res.status(201).json(note.categorizedQuestions);
 });
 
@@ -118,6 +134,10 @@ const createMoreCategorizedQuestions = asyncHandler(async (req, res) => {
   }));
   note.categorizedQuestions[category].push(...sanitizedNewQuestions);
   await note.save();
+  
+  // Update user credits
+  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+  
   res.status(201).json(note.categorizedQuestions);
 });
 
@@ -148,6 +168,9 @@ const createMindMap = asyncHandler(async (req, res) => {
 
   note.mindMap = mindMapData;
   await note.save();
+  
+  // Update user credits
+  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
 
   res.status(201).json(note.mindMap);
 });
@@ -205,6 +228,9 @@ Return as JSON with this structure:
   
   subject.studyPlan = JSON.parse(jsonString);
   await subject.save();
+  
+  // Update user credits
+  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
 
   res.json({ studyPlan: subject.studyPlan });
 });
@@ -262,6 +288,9 @@ Create a detailed comparison table showing key differences and similarities. Ret
   const jsonString = rawResponse.substring(startIndex, endIndex + 1);
   
   const comparison = JSON.parse(jsonString);
+  
+  // Update user credits
+  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
 
   res.json({ comparison });
 });
@@ -351,6 +380,9 @@ Ensure questions follow Bloom's taxonomy distribution and are based on the provi
   const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   const result = await model.generateContent(prompt);
   const examPaper = result.response.text();
+  
+  // Update user credits
+  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
 
   res.json({ examPaper });
 });
