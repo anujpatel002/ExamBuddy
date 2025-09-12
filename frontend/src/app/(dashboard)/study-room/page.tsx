@@ -39,6 +39,12 @@ export default function StudyRoomHub() {
 
   useEffect(() => {
     fetchSubjects();
+    // Check for URL parameters to auto-fill quiz details
+    const urlParams = new URLSearchParams(window.location.search);
+    const quizId = urlParams.get('quizId');
+    if (quizId) {
+      autoFillQuizDetails(quizId);
+    }
   }, []);
 
   useEffect(() => {
@@ -73,6 +79,22 @@ export default function StudyRoomHub() {
     } catch (error) {
       toast.error('Failed to fetch quizzes');
       setQuizzes([]);
+    }
+  };
+
+  const autoFillQuizDetails = async (quizId: string) => {
+    try {
+      const { data: quiz } = await api.get(`/quizzes/${quizId}`);
+      const subjectId = quiz.note?.subject?._id;
+      if (subjectId) {
+        setSelectedSubject(subjectId);
+        // Fetch quizzes for this subject and then select the quiz
+        const { data: subjectQuizzes } = await api.get(`/quizzes/my?subject=${subjectId}`);
+        setQuizzes(subjectQuizzes);
+        setSelectedQuiz(quizId);
+      }
+    } catch (error) {
+      console.error('Failed to auto-fill quiz details:', error);
     }
   };
 
@@ -162,18 +184,21 @@ export default function StudyRoomHub() {
 
             <div>
               <label className="block text-sm font-medium mb-2">Custom Room Code (Optional)</label>
-              <div className="flex gap-2">
+              <div className="relative">
                 <input
                   type="text"
                   placeholder="Enter custom code"
                   value={customRoomCode}
                   onChange={(e) => setCustomRoomCode(e.target.value.toUpperCase())}
                   maxLength={6}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
                 />
-                <Button onClick={generateRoomCode} variant="secondary" size="sm">
-                  <FiRefreshCw />
-                </Button>
+                <button 
+                  onClick={generateRoomCode} 
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                >
+                  <FiRefreshCw className="h-4 w-4" />
+                </button>
               </div>
             </div>
             

@@ -180,43 +180,56 @@ export default function SubjectsPage() {
 
       {/* Subjects Grid */}
       {subjects.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {subjects.map((subject) => (
             <div
               key={subject._id}
-              className={`relative bg-white dark:bg-gray-800 rounded-lg shadow transition-all select-none ${
-                isSelectionMode ? 'cursor-pointer' : 'hover:shadow-lg'
-              } ${selectedSubjects.includes(subject._id) ? 'ring-2 ring-indigo-500' : ''}`}
+              className={`relative bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 transition-all select-none ${
+                isSelectionMode ? 'cursor-pointer' : 'hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-600'
+              } ${selectedSubjects.includes(subject._id) ? 'ring-2 ring-indigo-500 border-indigo-500' : ''}`}
               onClick={() => isSelectionMode ? handleSelectSubject(subject._id) : router.push(`/subjects/${subject._id}`)}
             >
-              <div className="p-3 md:p-4">
+              <div className="p-5">
                 {isSelectionMode && (
-                  <div className="absolute top-2 right-2 md:top-3 md:right-3">
+                  <div className="absolute top-4 right-4">
                     <input
                       type="checkbox"
                       checked={selectedSubjects.includes(subject._id)}
                       readOnly
-                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                     />
                   </div>
                 )}
-                <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
-                  <FiBook className="text-indigo-500 text-lg md:text-xl flex-shrink-0" />
-                  <h3 className="font-semibold text-base md:text-lg truncate">{subject.name}</h3>
+                
+                {/* Subject Header */}
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <FiBook className="text-white text-xl" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 truncate mb-1">
+                      {subject.name}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Tap to view notes
+                    </p>
+                  </div>
                 </div>
+
+                {/* Action Buttons */}
                 {!isSelectionMode && (
-                  <div className="flex gap-2 pt-2 border-t dark:border-gray-700">
+                  <div className="flex gap-2">
                     <Button
                       onClick={(e) => {
                         e.stopPropagation();
                         router.push(`/subjects/${subject._id}`);
                       }}
-                      variant="secondary"
+                      variant="primary"
                       size="sm"
-                      className="flex-1 justify-center sm:hidden"
+                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white sm:hidden"
                     >
-                      <FiEye className="h-4 w-4" />
-                      <span className="ml-1">View</span>
+                      <FiEye className="h-4 w-4 mr-2" />
+                      Open
                     </Button>
                     <Button
                       onClick={(e) => {
@@ -225,10 +238,10 @@ export default function SubjectsPage() {
                       }}
                       variant="secondary"
                       size="sm"
-                      className="flex-1 justify-center"
+                      className="flex-1 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
                       <FiEdit className="h-4 w-4" />
-                      <span className="ml-1 hidden sm:inline">Edit</span>
+                      <span className="ml-2 hidden sm:inline">Edit</span>
                     </Button>
                     <Button
                       onClick={(e) => {
@@ -237,10 +250,10 @@ export default function SubjectsPage() {
                       }}
                       variant="secondary"
                       size="sm"
-                      className="flex-1 justify-center text-red-600 hover:bg-red-100 dark:text-red-400"
+                      className="flex-1 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
                     >
                       <FiTrash2 className="h-4 w-4" />
-                      <span className="ml-1 hidden sm:inline">Delete</span>
+                      <span className="ml-2 hidden sm:inline">Delete</span>
                     </Button>
                   </div>
                 )}
@@ -249,10 +262,12 @@ export default function SubjectsPage() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 md:py-12 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
-          <FiPlusCircle className="mx-auto h-10 md:h-12 w-10 md:w-12 text-gray-400" />
-          <h3 className="mt-2 text-lg md:text-xl font-semibold">No subjects yet</h3>
-          <p className="text-sm md:text-base text-gray-500 px-4">Create your first subject to get started.</p>
+        <div className="text-center py-12 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+          <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FiPlusCircle className="h-8 w-8 text-white" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">No subjects yet</h3>
+          <p className="text-gray-500 dark:text-gray-400 px-4 mb-4">Create your first subject to start organizing your notes and study materials.</p>
         </div>
       )}
 
