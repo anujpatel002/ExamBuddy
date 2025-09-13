@@ -51,8 +51,23 @@ body {
   .dark .prose.dark\:prose-invert.prose-sm.summary-content p,
   .dark .prose.dark\:prose-invert.prose-sm.summary-content div,
   .dark .prose.dark\:prose-invert.prose-sm.summary-content span,
-  .dark .prose.dark\:prose-invert.prose-sm.summary-content li {
+  .dark .prose.dark\:prose-invert.prose-sm.summary-content li,
+  html.dark .prose p,
+  html[data-theme="dark"] .prose p,
+  [data-theme="dark"] .prose p {
     color: #f3f4f6 !important;
+  }
+  
+  .dark .prose.dark\:prose-invert.prose-sm.summary-content h1,
+  .dark .prose.dark\:prose-invert.prose-sm.summary-content h2,
+  .dark .prose.dark\:prose-invert.prose-sm.summary-content h3,
+  html.dark .prose h1,
+  html.dark .prose h2,
+  html.dark .prose h3,
+  html[data-theme="dark"] .prose h1,
+  html[data-theme="dark"] .prose h2,
+  html[data-theme="dark"] .prose h3 {
+    color: #60a5fa !important;
   }
 }
 
@@ -141,8 +156,25 @@ html.dark .summary-content strong,
 
 /* Production deployment dark theme fixes */
 html.dark .prose.dark\:prose-invert.prose-sm p,
-.dark .prose.dark\:prose-invert.prose-sm p {
+.dark .prose.dark\:prose-invert.prose-sm p,
+html[data-theme="dark"] .prose p,
+[data-theme="dark"] .prose p {
   color: #f3f4f6 !important;
+}
+
+html.dark .prose.dark\:prose-invert.prose-sm h1,
+html.dark .prose.dark\:prose-invert.prose-sm h2,
+html.dark .prose.dark\:prose-invert.prose-sm h3,
+.dark .prose.dark\:prose-invert.prose-sm h1,
+.dark .prose.dark\:prose-invert.prose-sm h2,
+.dark .prose.dark\:prose-invert.prose-sm h3,
+html[data-theme="dark"] .prose h1,
+html[data-theme="dark"] .prose h2,
+html[data-theme="dark"] .prose h3,
+[data-theme="dark"] .prose h1,
+[data-theme="dark"] .prose h2,
+[data-theme="dark"] .prose h3 {
+  color: #60a5fa !important;
 }
 
 html.dark .text-red-400,
