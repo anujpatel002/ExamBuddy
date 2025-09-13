@@ -266,29 +266,56 @@ export default function NoteDetailPage() {
     };
   }, []);
 
-  // Force summary styling after render
+  // Monitor background color changes and adjust text accordingly
   useEffect(() => {
     if (note?.summary) {
-      const summaryElement = document.querySelector('.summary-content');
-      if (summaryElement) {
-        const isDark = document.documentElement.classList.contains('dark') ||
-                      document.documentElement.getAttribute('data-theme') === 'dark' ||
-                      window.matchMedia('(prefers-color-scheme: dark)').matches;
-        
-        // Force all text elements to have correct colors
-        const textElements = summaryElement.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, span, div');
-        textElements.forEach(el => {
-          (el as HTMLElement).style.color = isDark ? '#ffffff !important' : '#374151 !important';
+      const summaryContainer = document.querySelector('.summary-content')?.parentElement;
+      if (summaryContainer) {
+        const observer = new MutationObserver(() => {
+          const bgColor = window.getComputedStyle(summaryContainer).backgroundColor;
+          const rgb = bgColor.match(/\d+/g);
+          
+          if (rgb) {
+            // Calculate brightness of background
+            const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+            const isDarkBg = brightness < 128;
+            
+            const summaryElement = document.querySelector('.summary-content');
+            if (summaryElement) {
+              // Apply text colors based on background brightness
+              const textElements = summaryElement.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, span, div');
+              textElements.forEach(el => {
+                (el as HTMLElement).style.color = isDarkBg ? '#ffffff' : '#374151';
+                (el as HTMLElement).style.setProperty('color', isDarkBg ? '#ffffff' : '#374151', 'important');
+              });
+              
+              // Special colors for headings
+              const headings = summaryElement.querySelectorAll('h1, h2, h3');
+              headings.forEach(el => {
+                (el as HTMLElement).style.setProperty('color', isDarkBg ? '#60a5fa' : '#1f2937', 'important');
+              });
+            }
+          }
         });
         
-        // Force headings to have accent colors
-        const headings = summaryElement.querySelectorAll('h1, h2, h3');
-        headings.forEach(el => {
-          (el as HTMLElement).style.color = isDark ? '#60a5fa !important' : '#1f2937 !important';
-        });
+        // Observe background changes
+        observer.observe(summaryContainer, { attributes: true, attributeFilter: ['class', 'style'] });
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+        
+        // Initial call
+        observer.disconnect();
+        observer.observe(summaryContainer, { attributes: true, attributeFilter: ['class', 'style'] });
+        
+        // Trigger initial check
+        setTimeout(() => {
+          const event = new MutationRecord();
+          observer.callback([event as any], observer);
+        }, 100);
+        
+        return () => observer.disconnect();
       }
     }
-  }, [note?.summary, isDarkMode]);
+  }, [note?.summary]);
 
   const fetchNoteAndQuizzes = async () => {
     if (!noteId) return;
