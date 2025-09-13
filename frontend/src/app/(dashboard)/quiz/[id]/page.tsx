@@ -8,7 +8,7 @@ import { FiArrowLeft, FiArrowRight } from 'react-icons/fi';
 
 // Updated type for quiz to include the note ID
 interface IQuestion { question: string; options: string[]; correctAnswer: string; }
-interface IQuiz { _id: string; title: string; questions: IQuestion[]; note: string; }
+interface IQuiz { _id: string; title: string; questions: IQuestion[]; note?: { _id: string; subject: string; }; subject?: { _id: string; name: string; }; }
 
 export default function SoloQuizPage() {
     const { id: quizId } = useParams();
@@ -57,7 +57,17 @@ export default function SoloQuizPage() {
                         <Button variant="secondary" onClick={() => setIsReviewMode(!isReviewMode)}>
                             {isReviewMode ? 'Hide Answers' : 'View Answers'}
                         </Button>
-                        <Button onClick={() => router.replace(`/notes/${quiz.note}`)}>Back to Note</Button>
+                        <Button onClick={() => {
+                            if (quiz.subject) {
+                                router.replace(`/subjects/${quiz.subject._id}`);
+                            } else if (quiz.note) {
+                                router.replace(`/notes/${quiz.note._id}`);
+                            } else {
+                                router.replace('/dashboard');
+                            }
+                        }}>
+                            {quiz.subject ? 'Back to Subject' : 'Back to Note'}
+                        </Button>
                     </div>
                 </div>
 

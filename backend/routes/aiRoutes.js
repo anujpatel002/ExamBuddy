@@ -14,7 +14,8 @@ import {
   createMindMap,
   createStudyPlan,
   compareConcepts,
-  generateExamPaper
+  generateExamPaper,
+  createSubjectQuiz
 } from '../controllers/aiController.js';
 
 const storage = multer.memoryStorage();
@@ -30,6 +31,7 @@ router.post('/mindmap/:noteId', protect, checkPlanLimit('aiCredits'), checkApiLi
 router.post('/study-plan/:subjectId', protect, checkPlanLimit('aiCredits'), checkApiLimit, createStudyPlan);
 router.post('/compare-concepts', protect, checkPlanLimit('compareNotes'), checkPlanLimit('aiCredits'), checkApiLimit, compareConcepts);
 router.post('/generate-exam/:subjectId', protect, checkPlanLimit('examCreator'), checkPlanLimit('aiCredits'), checkApiLimit, generateExamPaper);
+router.post('/subject-quiz/:subjectId', protect, checkPlanLimit('aiCredits'), checkApiLimit, createSubjectQuiz);
 router.get('/practice-questions/:noteId', protect, async (req, res) => {
   try {
     const Note = (await import('../models/noteModel.js')).default;

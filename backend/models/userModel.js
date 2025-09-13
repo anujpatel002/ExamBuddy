@@ -19,7 +19,7 @@ const userSchema = mongoose.Schema(
       plan: { type: String, default: 'free', enum: ['free', 'pro', 'premium', 'ultra'] },
       razorpayCustomerId: String,
       razorpaySubscriptionId: String,
-      status: { type: String, default: 'active', enum: ['active', 'cancelled', 'expired', 'paused'] },
+      status: { type: String, default: 'active', enum: ['active', 'inactive', 'cancelled', 'expired', 'paused'] },
       startDate: { type: Date, default: Date.now },
       endDate: { type: Date },
       autoRenew: { type: Boolean, default: true },
@@ -67,6 +67,14 @@ userSchema.pre('save', async function (next) {
 
 // Check and expire subscriptions before save
 userSchema.pre('save', function (next) {
+  // Auto-set status based on plan
+  if (this.subscription.plan === 'free') {
+    this.subscription.status = 'inactive';
+  } else if (['pro', 'premium', 'ultra'].includes(this.subscription.plan)) {
+    this.subscription.status = 'active';
+  }
+  
+  // Check expiration for paid plans with endDate
   if (this.subscription.plan !== 'free' && this.subscription.endDate && new Date() > this.subscription.endDate && this.subscription.status === 'active') {
     this.expireSubscription();
   }
@@ -90,12 +98,10 @@ userSchema.methods.createEmailVerificationToken = function() {
 
 // Method to check if subscription is active
 userSchema.methods.isSubscriptionActive = function() {
+  // For free plan, always allow basic access but with limits
   if (this.subscription.plan === 'free') return true;
-  if (this.subscription.status !== 'active') return false;
-  if (this.subscription.endDate && new Date() > this.subscription.endDate) {
-    return false;
-  }
-  return true;
+  // For paid plans, check if status is active
+  return this.subscription.status === 'active';
 };
 
 // Method to get remaining days

@@ -54,9 +54,9 @@ const QBankQuestionCard = ({ question, index }: { question: any; index: number }
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <span className="text-sm font-semibold text-green-700 dark:text-green-300">ANSWER</span>
                 </div>
-                <div className="space-y-3">
+                <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
                   <div 
-                    className="prose dark:prose-invert prose-sm max-w-none text-sm leading-7 space-y-2"
+                    className="prose dark:prose-invert prose-sm max-w-none text-sm leading-7 space-y-2 break-words"
                     dangerouslySetInnerHTML={{ 
                       __html: sanitizeHTML(question.answer)
                         .replace(/\n\n/g, '</p><p class="mt-3">')
@@ -106,9 +106,12 @@ export default function SubjectDetailPage() {
   const [noteToManage, setNoteToManage] = useState<Note | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGeneratingMore, setIsGeneratingMore] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [activeQBankTab, setActiveQBankTab] = useState('oneMarker');
   const [activeQBankType, setActiveQBankType] = useState('theory');
   const [qbankProgress, setQbankProgress] = useState({ message: '', progress: 0 });
+  const [subjectQuizzes, setSubjectQuizzes] = useState<any[]>([]);
 
   const fetchSubjectDetails = async () => {
     if (!subjectId) return;
@@ -120,6 +123,11 @@ export default function SubjectDetailPage() {
       setSubject(data.subject);
       setNotes(data.notes);
       setStudyPlan(data.subject.studyPlan || null);
+      
+      // Fetch subject-level quizzes
+      const quizRes = await api.get('/quizzes/my');
+      const allSubjectQuizzes = quizRes.data.filter((quiz: any) => quiz.subject?._id === subjectId);
+      setSubjectQuizzes(allSubjectQuizzes);
     } catch (error) {
       toast.error('Failed to fetch subject details.');
     } finally {
@@ -268,6 +276,9 @@ export default function SubjectDetailPage() {
           <button onClick={() => setActiveTab('compare')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'compare' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             <FiColumns className="w-4 h-4" /> Compare
           </button>
+          <button onClick={() => setActiveTab('mcq')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'mcq' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            <FiEdit className="w-4 h-4" /> MCQ
+          </button>
           <button onClick={() => setActiveTab('examcreator')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'examcreator' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             🎯 Exam
           </button>
@@ -343,27 +354,115 @@ export default function SubjectDetailPage() {
                         : Object.values(subject.questionBank).reduce((total: number, arr: any) => total + (arr?.length || 0), 0)
                       ) : 0} Questions
                     </span>
-                    <Button 
-                      onClick={async () => {
-                        setIsSubmitting(true);
-                        setQbankProgress({ message: 'Starting...', progress: 0 });
-                        try {
-                          await api.post(`/question-bank/${subjectId}`);
-                          toast.success('Question Bank regenerated successfully!');
-                          await fetchSubjectDetails();
-                        } catch (error: any) {
-                          toast.error(error.response?.data?.message || 'Failed to regenerate Question Bank.');
-                        } finally {
-                          setIsSubmitting(false);
-                          setQbankProgress({ message: '', progress: 0 });
-                        }
-                      }}
-                      variant="secondary"
-                      size="sm"
-                      isLoading={isSubmitting}
-                    >
-                      {isSubmitting ? `${qbankProgress.message} (${qbankProgress.progress}%)` : '🔄 Regenerate'}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={async () => {
+                          setIsGeneratingMore(true);
+                          try {
+                            const { data } = await api.post(`/question-bank/${subjectId}/generate-more`, { 
+                              category: activeQBankTab,
+                              type: (subject?.questionBank?.theory || subject?.questionBank?.practical) ? activeQBankType : undefined
+                            });
+                            
+                            const message = data.fromDatabase 
+                              ? `Retrieved ${data.questions.length} ${activeQBankTab} questions from database`
+                              : `Generated ${data.questions.length} new ${activeQBankTab} questions`;
+                            
+                            toast.success(message);
+                            
+                            // Update state directly without refresh
+                            setSubject(prev => {
+                              if (!prev) return prev;
+                              const updated = { ...prev };
+                              if (!updated.questionBank) updated.questionBank = {};
+                              
+                              if (updated.questionBank.theory || updated.questionBank.practical) {
+                                if (!updated.questionBank[activeQBankType]) updated.questionBank[activeQBankType] = {};
+                                updated.questionBank[activeQBankType][activeQBankTab] = data.questions;
+                              } else {
+                                updated.questionBank[activeQBankTab] = data.questions;
+                              }
+                              
+                              return updated;
+                            });
+                          } catch (error: any) {
+                            toast.error(error.response?.data?.message || 'Failed to load questions.');
+                          } finally {
+                            setIsGeneratingMore(false);
+                          }
+                        }}
+                        variant="secondary"
+                        size="sm"
+                        isLoading={isGeneratingMore}
+                      >
+                        {isGeneratingMore ? `Loading...` : `+ More ${activeQBankTab.replace('Marker', ' Marker')}`}
+                      </Button>
+                      <Button 
+                        onClick={async () => {
+                          if (!confirm(`Reset all ${activeQBankTab.replace('Marker', ' Marker')} questions? This will clear existing questions and generate fresh ones.`)) return;
+                          
+                          setIsResetting(true);
+                          try {
+                            const { data } = await api.post(`/question-bank/${subjectId}/generate-more`, { 
+                              category: activeQBankTab,
+                              type: (subject?.questionBank?.theory || subject?.questionBank?.practical) ? activeQBankType : undefined,
+                              reset: true
+                            });
+                            
+                            toast.success(`Reset and generated ${data.questions.length} fresh ${activeQBankTab} questions!`);
+                            
+                            // Update state directly without refresh
+                            setSubject(prev => {
+                              if (!prev) return prev;
+                              const updated = { ...prev };
+                              if (!updated.questionBank) updated.questionBank = {};
+                              
+                              if (updated.questionBank.theory || updated.questionBank.practical) {
+                                if (!updated.questionBank[activeQBankType]) updated.questionBank[activeQBankType] = {};
+                                updated.questionBank[activeQBankType][activeQBankTab] = data.questions;
+                              } else {
+                                updated.questionBank[activeQBankTab] = data.questions;
+                              }
+                              
+                              return updated;
+                            });
+                          } catch (error: any) {
+                            toast.error(error.response?.data?.message || 'Failed to reset questions.');
+                          } finally {
+                            setIsResetting(false);
+                          }
+                        }}
+                        variant="secondary"
+                        size="sm"
+                        className="text-orange-600 hover:bg-orange-100 dark:text-orange-400 dark:hover:bg-orange-900/50"
+                        isLoading={isResetting}
+                      >
+                        {isResetting ? 'Resetting...' : '🔄 Reset'}
+                      </Button>
+                      <Button 
+                        onClick={async () => {
+                          if (!confirm('Regenerate entire Question Bank? This will replace all existing questions.')) return;
+                          
+                          setIsSubmitting(true);
+                          setQbankProgress({ message: 'Starting...', progress: 0 });
+                          try {
+                            await api.post(`/question-bank/${subjectId}`);
+                            toast.success('Question Bank regenerated successfully!');
+                            await fetchSubjectDetails();
+                          } catch (error: any) {
+                            toast.error(error.response?.data?.message || 'Failed to regenerate Question Bank.');
+                          } finally {
+                            setIsSubmitting(false);
+                            setQbankProgress({ message: '', progress: 0 });
+                          }
+                        }}
+                        variant="secondary"
+                        size="sm"
+                        isLoading={isSubmitting}
+                      >
+                        {isSubmitting ? `${qbankProgress.message} (${qbankProgress.progress}%)` : '🔄 Regenerate All'}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -452,6 +551,8 @@ export default function SubjectDetailPage() {
                     ));
                   })()}
                 </div>
+                
+
               </div>
             </div>
           ) : (
@@ -674,6 +775,135 @@ export default function SubjectDetailPage() {
         </div>
       )}
 
+      {activeTab === 'mcq' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">MCQ Quiz Generator</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Generate MCQ quizzes from all notes in this subject</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-4 sm:p-6">
+            {notes.length > 0 ? (
+              <div className="space-y-6">
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/30 rounded-2xl p-6">
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FiEdit className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2 text-center">Generate Subject Quiz</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto text-center">
+                    Create comprehensive MCQ quizzes using content from all {notes.length} notes in this subject.
+                  </p>
+                  
+                  <div className="max-w-md mx-auto space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Quiz Name</label>
+                      <input 
+                        type="text" 
+                        id="quizName"
+                        placeholder={`${subject?.name} Quiz`}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-md text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Number of Questions</label>
+                      <select 
+                        id="questionCount"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-md text-gray-900 dark:text-gray-100"
+                      >
+                        <option value="10">10 Questions</option>
+                        <option value="15">15 Questions</option>
+                        <option value="20">20 Questions</option>
+                        <option value="25">25 Questions</option>
+                        <option value="30">30 Questions</option>
+                      </select>
+                    </div>
+                    <Button 
+                      onClick={async () => {
+                        const quizName = (document.getElementById('quizName') as HTMLInputElement).value || `${subject?.name} Quiz`;
+                        const questionCount = parseInt((document.getElementById('questionCount') as HTMLSelectElement).value);
+                        
+                        setIsSubmitting(true);
+                        try {
+                          const response = await api.post(`/ai/subject-quiz/${subjectId}`, { quizName, questionCount });
+                          toast.success(`Quiz "${quizName}" generated successfully with ${response.data.quiz.questionCount} questions!`);
+                          // Clear form
+                          (document.getElementById('quizName') as HTMLInputElement).value = '';
+                          (document.getElementById('questionCount') as HTMLSelectElement).value = '10';
+                          // Refresh subject quizzes
+                          await fetchSubjectDetails();
+                        } catch (error: any) {
+                          toast.error(error.response?.data?.message || 'Failed to generate quiz.');
+                        } finally {
+                          setIsSubmitting(false);
+                        }
+                      }}
+                      isLoading={isSubmitting}
+                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-3"
+                    >
+                      {isSubmitting ? 'Generating Quiz...' : '🚀 Generate MCQ Quiz'}
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Display Subject Quizzes */}
+                {subjectQuizzes.length > 0 && (
+                  <div className="mt-8">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Subject Quizzes</h4>
+                    <div className="space-y-3">
+                      {subjectQuizzes.map(quiz => (
+                        <div key={quiz._id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div className="flex-grow">
+                              <span className="font-medium break-words text-gray-800 dark:text-gray-200">{quiz.title}</span>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-sm text-gray-500 dark:text-gray-400">{quiz.questionCount} MCQs</span>
+                                <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 px-2 py-1 rounded-full">Subject Quiz</span>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
+                              <Button onClick={() => router.push(`/study-room?quizId=${quiz._id}`)} variant="secondary">Host</Button>
+                              <Button onClick={() => router.push(`/quiz/${quiz._id}`)}>Solo</Button>
+                              <Button 
+                                variant="secondary" 
+                                size="sm" 
+                                className="text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/50 px-3"
+                                onClick={async () => {
+                                  if (confirm(`Delete quiz "${quiz.title}"?`)) {
+                                    try {
+                                      await api.delete(`/quizzes/${quiz._id}`);
+                                      toast.success('Quiz deleted successfully!');
+                                      await fetchSubjectDetails();
+                                    } catch (error) {
+                                      toast.error('Failed to delete quiz.');
+                                    }
+                                  }
+                                }}
+                              >
+                                <FiTrash2 />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <FiEdit className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-xl font-semibold">Upload Notes First</h3>
+                <p className="mt-1 text-sm text-gray-500">You need to upload notes to generate MCQ quizzes for this subject.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'examcreator' && (
         <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow">
           <h2 className="text-xl md:text-2xl font-semibold mb-4">Exam Paper Creator</h2>
@@ -781,7 +1011,9 @@ export default function SubjectDetailPage() {
                   const { data } = await api.post(`/ai/generate-exam/${subjectId}`, config);
                   
                   // Create Word document
-                  const examContent = `
+                  // Show download options
+                  const downloadPDF = () => {
+                    const examContent = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -801,15 +1033,55 @@ export default function SubjectDetailPage() {
     ${sanitizeHTML(data.examPaper.replace(/\n/g, '<br>'))}
 </body>
 </html>`;
+                    
+                    const blob = new Blob([examContent], { type: 'text/html' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${subject?.name || 'Exam'}_Paper.html`;
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                  };
                   
-                  const blob = new Blob([examContent], { type: 'application/msword' });
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${subject?.name || 'Exam'}_Paper.doc`;
-                  a.click();
+                  const downloadWord = () => {
+                    const examContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Exam Paper</title>
+    <style>
+        body { font-family: 'Times New Roman', serif; margin: 1in; line-height: 1.6; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .section { margin: 20px 0; }
+        .question { margin: 15px 0; }
+        .mcq-option { margin-left: 20px; }
+        h1, h2 { color: #333; }
+        .instructions { border: 1px solid #ccc; padding: 15px; margin: 20px 0; background-color: #f9f9f9; }
+    </style>
+</head>
+<body>
+    ${sanitizeHTML(data.examPaper.replace(/\n/g, '<br>'))}
+</body>
+</html>`;
+                    
+                    const blob = new Blob([examContent], { type: 'application/msword' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${subject?.name || 'Exam'}_Paper.doc`;
+                    a.click();
+                  };
                   
-                  toast.success('Exam paper generated and downloaded as Word document!');
+                  // Show options dialog
+                  const choice = confirm('Choose download format:\nOK = PDF\nCancel = Word Document');
+                  if (choice) {
+                    downloadPDF();
+                    toast.success('Exam paper downloaded as HTML file!');
+                  } else {
+                    downloadWord();
+                    toast.success('Exam paper downloaded as Word document!');
+                  }
                 } catch (error: any) {
                   toast.error(error.response?.data?.message || 'Failed to generate exam paper.');
                 } finally {

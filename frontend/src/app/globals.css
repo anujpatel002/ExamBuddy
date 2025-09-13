@@ -47,28 +47,53 @@ body {
     padding: 2px 4px;
   }
   
-  /* Mobile summary content - same as practice questions */
-  .dark .prose.dark\:prose-invert.prose-sm.summary-content p,
-  .dark .prose.dark\:prose-invert.prose-sm.summary-content div,
-  .dark .prose.dark\:prose-invert.prose-sm.summary-content span,
-  .dark .prose.dark\:prose-invert.prose-sm.summary-content li,
-  html.dark .prose p,
-  html[data-theme="dark"] .prose p,
-  [data-theme="dark"] .prose p {
-    color: #f3f4f6 !important;
-  }
+  /* --- START: UPDATED MOBILE SUMMARY STYLES --- */
   
-  .dark .prose.dark\:prose-invert.prose-sm.summary-content h1,
-  .dark .prose.dark\:prose-invert.prose-sm.summary-content h2,
-  .dark .prose.dark\:prose-invert.prose-sm.summary-content h3,
-  html.dark .prose h1,
-  html.dark .prose h2,
-  html.dark .prose h3,
-  html[data-theme="dark"] .prose h1,
-  html[data-theme="dark"] .prose h2,
-  html[data-theme="dark"] .prose h3 {
+  /* Mobile summary headings */
+  .dark .summary-content h1,
+  html.dark .summary-content h1 {
     color: #60a5fa !important;
   }
+  .dark .summary-content h2,
+  html.dark .summary-content h2 {
+    color: #3b82f6 !important;
+  }
+  .dark .summary-content h3,
+  html.dark .summary-content h3 {
+    color: #2563eb !important;
+  }
+
+  /* Mobile summary content text and elements */
+  .dark .summary-content p,
+  .dark .summary-content strong,
+  .dark .summary-content em,
+  .dark .summary-content td,
+  .dark .summary-content ul,
+  .dark .summary-content ol,
+  .dark .summary-content li,
+  .dark .summary-content blockquote,
+  .dark .summary-content div {
+    color: #ffffff !important; /* Force all text to be white */
+  }
+
+  /* Ensure other properties like background/borders are also set for mobile dark mode */
+  .dark .summary-content th {
+    background: #334155 !important;
+    border-color: #475569 !important;
+    color: #f1f5f9 !important;
+  }
+  .dark .summary-content td {
+    border-color: #475569 !important;
+  }
+  .dark .summary-content blockquote {
+    border-left-color: #60a5fa !important;
+    background: #334155 !important;
+  }
+  .dark .summary-content div {
+    background: #334155 !important;
+    border-color: #475569 !important;
+  }
+  /* --- END: UPDATED MOBILE SUMMARY STYLES --- */
 }
 
 /* Scrollbar hide utility */
@@ -192,14 +217,25 @@ html.dark .text-gray-100,
   color: #f3f4f6 !important;
 }
 
-/* Force summary content colors in dark mode */
-[data-theme="dark"] .summary-content *,
-html[data-theme="dark"] .summary-content *,
+/* Force summary content colors in dark mode - PRODUCTION FIX */
+.dark .summary-content,
 .dark .summary-content *,
-html.dark .summary-content * {
+html.dark .summary-content,
+html.dark .summary-content *,
+[data-theme="dark"] .summary-content,
+[data-theme="dark"] .summary-content *,
+html[data-theme="dark"] .summary-content,
+html[data-theme="dark"] .summary-content * {
   color: #ffffff !important;
+  text-shadow: none !important;
 }
 
+.dark .summary-content h1,
+.dark .summary-content h2,
+.dark .summary-content h3,
+html.dark .summary-content h1,
+html.dark .summary-content h2,
+html.dark .summary-content h3,
 [data-theme="dark"] .summary-content h1,
 [data-theme="dark"] .summary-content h2,
 [data-theme="dark"] .summary-content h3,
@@ -207,6 +243,7 @@ html[data-theme="dark"] .summary-content h1,
 html[data-theme="dark"] .summary-content h2,
 html[data-theme="dark"] .summary-content h3 {
   color: #60a5fa !important;
+  text-shadow: none !important;
 }
 .dark .summary-content th { background: #334155 !important; border-color: #475569 !important; color: #f1f5f9 !important; }
 .dark .summary-content td { border-color: #475569 !important; color: #ffffff !important; }

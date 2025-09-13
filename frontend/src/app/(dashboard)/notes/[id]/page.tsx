@@ -610,6 +610,7 @@ export default function NoteDetailPage() {
                 </div>
                 <div 
                   className="prose dark:prose-invert prose-sm max-w-none summary-content"
+                  style={{ color: isDarkMode ? '#ffffff' : 'inherit' }}
                   dangerouslySetInnerHTML={{ __html: sanitizeHTML(note.summary) }} 
                 />
               </>

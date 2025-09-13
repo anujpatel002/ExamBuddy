@@ -13,7 +13,8 @@ const descriptiveQuestionSchema = mongoose.Schema({
 const quizSchema = mongoose.Schema(
   {
     title: { type: String, required: true },
-    note: { type: mongoose.Schema.Types.ObjectId, ref: 'Note', required: true },
+    note: { type: mongoose.Schema.Types.ObjectId, ref: 'Note' },
+    subject: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     questions: { type: mongoose.Schema.Types.Mixed },
     descriptiveQuestions: { type: mongoose.Schema.Types.Mixed },
@@ -22,6 +23,15 @@ const quizSchema = mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Validation: Either note or subject must be provided
+quizSchema.pre('validate', function(next) {
+  if (!this.note && !this.subject) {
+    next(new Error('Either note or subject must be provided'));
+  } else {
+    next();
+  }
+});
 
 // Virtual for question count
 quizSchema.virtual('questionCount').get(function() {

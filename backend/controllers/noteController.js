@@ -9,19 +9,19 @@ import { updateStreak, addPoints } from '../utils/gamification.js';
 import { getPlanLimits } from '../middleware/planLimits.js';
 
 const uploadNote = asyncHandler(async (req, res) => {
-  // --- THIS IS THE FIX ---
-  // Define subjectId at the top of the function
   const { title, subjectId } = req.body;
   const user = await User.findById(req.user._id);
-  const userPlan = user.subscription?.plan || 'free';
+  
+  // Check if subscription is active
+  const isActive = user.isSubscriptionActive();
+  const userPlan = isActive ? (user.subscription?.plan || 'free') : 'free';
   const limits = getPlanLimits(userPlan);
   
-  // Now the check can safely use the subjectId variable
   const notesInSubject = await Note.countDocuments({ user: req.user._id, subject: subjectId });
   
   if (limits.notesPerSubject !== -1 && notesInSubject >= limits.notesPerSubject) {
     res.status(403);
-    throw new Error(`Note limit reached. Upgrade your plan to add more than ${limits.notesPerSubject} notes per subject.`);
+    throw new Error(`Note limit reached. Your ${userPlan} plan allows ${limits.notesPerSubject} notes per subject. Upgrade to add more notes.`);
   }
 
   const file = req.file;

@@ -25,11 +25,18 @@ const getMyQuizzes = asyncHandler(async (req, res) => {
     let query = { createdBy: req.user._id };
     
     if (subject) {
-        // Find notes that belong to the specified subject
+        // Find both note-level and subject-level quizzes for the specified subject
         const Note = (await import('../models/noteModel.js')).default;
         const notes = await Note.find({ subject, user: req.user._id }).select('_id');
         const noteIds = notes.map(note => note._id);
-        query.note = { $in: noteIds };
+        
+        query = {
+            createdBy: req.user._id,
+            $or: [
+                { note: { $in: noteIds } },
+                { subject: subject }
+            ]
+        };
     }
     
     const quizzes = await Quiz.find(query)
@@ -40,6 +47,10 @@ const getMyQuizzes = asyncHandler(async (req, res) => {
                 path: 'subject',
                 select: 'name'
             }
+        })
+        .populate({
+            path: 'subject',
+            select: 'name'
         })
         .sort({ createdAt: -1 });
 

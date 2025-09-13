@@ -501,7 +501,122 @@ const compareConcepts = asyncHandler(async (req, res) => {
 });
 
 const generateExamPaper = asyncHandler(async (req, res) => {
-    res.status(501).json({ message: 'Exam paper generation not implemented yet' });
+    const subject = await Subject.findById(req.params.subjectId);
+    if (!subject || subject.user.toString() !== req.user._id.toString()) {
+        res.status(404);
+        throw new Error('Subject not found or user not authorized');
+    }
+    
+    const notes = await Note.find({ subject: req.params.subjectId });
+    if (notes.length === 0) {
+        res.status(400);
+        throw new Error('No notes found in this subject to generate exam paper from.');
+    }
+    
+    const { totalMarks, duration, distribution, bloomsTaxonomy } = req.body;
+    
+    const emitProgress = (message, progress) => {
+        if (req.io && req.userSocketMap[req.user._id]) {
+            req.io.to(req.userSocketMap[req.user._id]).emit('ai-progress', { message, progress });
+        }
+    };
+    
+    emitProgress('Analyzing subject content...', 20);
+    
+    // Combine all note content
+    const combinedContent = notes.map(note => `${note.title}:\n${note.textContent}`).join('\n\n---\n\n');
+    
+    emitProgress('Generating exam paper...', 60);
+    
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    
+    const prompt = `Generate a comprehensive exam paper based on the following content:
+
+${combinedContent}
+
+Exam Requirements:
+- Total Marks: ${totalMarks}
+- Duration: ${duration} hours
+- Question Distribution:
+  * ${distribution.mcq1} x 1 Mark MCQ
+  * ${distribution.mark3} x 3 Mark Questions
+  * ${distribution.mark4} x 4 Mark Questions
+  * ${distribution.mark5} x 5 Mark Questions
+
+Blooms Taxonomy Distribution:
+- Remember: ${bloomsTaxonomy.remember}%
+- Understand: ${bloomsTaxonomy.understand}%
+- Apply: ${bloomsTaxonomy.apply}%
+- Analyze: ${bloomsTaxonomy.analyze}%
+- Evaluate: ${bloomsTaxonomy.evaluate}%
+- Create: ${bloomsTaxonomy.create}%
+
+Format the exam paper professionally with:
+1. Header with subject name, marks, and duration
+2. Clear instructions for students
+3. Well-organized sections for different question types
+4. Proper numbering and mark allocation
+5. Professional academic formatting
+
+Return only the formatted exam paper content.`;
+    
+    const result = await model.generateContent(prompt);
+    const examPaper = result.response.text();
+    
+    emitProgress('Formatting exam paper...', 90);
+    
+    await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+    
+    emitProgress('Exam paper ready!', 100);
+    res.json({ examPaper, subject: subject.name });
+});
+
+const createSubjectQuiz = asyncHandler(async (req, res) => {
+    const subject = await Subject.findById(req.params.subjectId);
+    if (!subject || subject.user.toString() !== req.user._id.toString()) {
+        res.status(404);
+        throw new Error('Subject not found or user not authorized');
+    }
+    
+    const notes = await Note.find({ subject: req.params.subjectId });
+    if (notes.length === 0) {
+        res.status(400);
+        throw new Error('No notes found in this subject to generate quiz from.');
+    }
+    
+    const { quizName, questionCount } = req.body;
+    
+    const emitProgress = (message, progress) => {
+        if (req.io && req.userSocketMap[req.user._id]) {
+            req.io.to(req.userSocketMap[req.user._id]).emit('ai-progress', { message, progress });
+        }
+    };
+    
+    emitProgress('Analyzing all notes in subject...', 20);
+    
+    // Combine all note content
+    const combinedContent = notes.map(note => `${note.title}:\n${note.textContent}`).join('\n\n---\n\n');
+    
+    emitProgress('Generating quiz questions...', 60);
+    
+    const quizData = await generateQuiz(combinedContent, questionCount || 10);
+    
+    emitProgress('Creating quiz...', 90);
+    
+    const quiz = new Quiz({
+        title: quizName || `${subject.name} Quiz`,
+        subject: subject._id,
+        createdBy: req.user._id,
+        questions: quizData.mcqs || [],
+        isVisible: true
+    });
+    
+    await quiz.save();
+    await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+    
+    emitProgress('Subject quiz ready!', 100);
+    res.json({ quiz, message: 'Subject quiz created successfully!' });
 });
 
 export { 
@@ -514,5 +629,6 @@ export {
     createMindMap,
     createStudyPlan,
     compareConcepts,
-    generateExamPaper
+    generateExamPaper,
+    createSubjectQuiz
 };
