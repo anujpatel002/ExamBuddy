@@ -119,15 +119,17 @@ const PracticeQuestionCard = ({ question, index, activePracticeTab, questionCate
                             </pre>
                           );
                         } else {
-                          // Regular text with word wrapping
+                          // Regular text with word wrapping - strip HTML tags
+                          const textContent = part.replace(/<[^>]*>/g, '');
                           return (
-                            <div key={index} className="break-words overflow-wrap-anywhere" dangerouslySetInnerHTML={{ __html: sanitizeHTML(part) }} />
+                            <div key={index} className="break-words overflow-wrap-anywhere whitespace-pre-wrap">{textContent}</div>
                           );
                         }
                       });
                     } else {
-                      // No code, render normally with word wrapping
-                      return <div className="break-words overflow-wrap-anywhere whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: sanitizeHTML(answer) }} />;
+                      // No code, render normally with word wrapping - strip HTML tags
+                      const textContent = answer.replace(/<[^>]*>/g, '');
+                      return <div className="break-words overflow-wrap-anywhere whitespace-pre-wrap">{textContent}</div>;
                     }
                   })()
                   }

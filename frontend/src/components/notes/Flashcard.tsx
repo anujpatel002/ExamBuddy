@@ -75,7 +75,7 @@ const Flashcard = ({ flashcard }: FlashcardProps) => {
             <div className="mb-4">
               <div className="prose prose-sm dark:prose-invert max-w-none">
                 <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
-                  {flashcard.answer}
+                  {flashcard.answer.replace(/<[^>]*>/g, '')}
                 </p>
               </div>
             </div>
