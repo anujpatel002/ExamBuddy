@@ -266,6 +266,30 @@ export default function NoteDetailPage() {
     };
   }, []);
 
+  // Force summary styling after render
+  useEffect(() => {
+    if (note?.summary) {
+      const summaryElement = document.querySelector('.summary-content');
+      if (summaryElement) {
+        const isDark = document.documentElement.classList.contains('dark') ||
+                      document.documentElement.getAttribute('data-theme') === 'dark' ||
+                      window.matchMedia('(prefers-color-scheme: dark)').matches;
+        
+        // Force all text elements to have correct colors
+        const textElements = summaryElement.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, span, div');
+        textElements.forEach(el => {
+          (el as HTMLElement).style.color = isDark ? '#ffffff !important' : '#374151 !important';
+        });
+        
+        // Force headings to have accent colors
+        const headings = summaryElement.querySelectorAll('h1, h2, h3');
+        headings.forEach(el => {
+          (el as HTMLElement).style.color = isDark ? '#60a5fa !important' : '#1f2937 !important';
+        });
+      }
+    }
+  }, [note?.summary, isDarkMode]);
+
   const fetchNoteAndQuizzes = async () => {
     if (!noteId) return;
     try {
