@@ -507,7 +507,10 @@ export default function NoteDetailPage() {
     { key: 'fourMarker', label: '4 Marker' },
     { key: 'fiveMarker', label: '5 Marker' },
   ].filter(cat => {
-    const questions = (note.categorizedQuestions as any)[cat.key];
+    const currentQuestions = (note.categorizedQuestions as any).theory ? 
+      (note.categorizedQuestions as any)[activePracticeType] :
+      note.categorizedQuestions;
+    const questions = currentQuestions?.[cat.key];
     return Array.isArray(questions) && questions.length > 0;
   }) : [];
 
@@ -531,6 +534,13 @@ export default function NoteDetailPage() {
                 </div>
                 <div 
                   className="prose dark:prose-invert max-w-none summary-content"
+                  style={{
+                    color: typeof window !== 'undefined' && 
+                           (document.documentElement.classList.contains('dark') || 
+                            document.documentElement.getAttribute('data-theme') === 'dark' ||
+                            window.matchMedia('(prefers-color-scheme: dark)').matches) 
+                           ? '#ffffff' : '#374151'
+                  }}
                   dangerouslySetInnerHTML={{ __html: sanitizeHTML(note.summary) }} 
                 />
               </>
@@ -710,7 +720,7 @@ export default function NoteDetailPage() {
                         { key: 'theory', label: 'Theory', icon: '📚' },
                         { key: 'practical', label: 'Practical', icon: '⚡' }
                       ].filter(tab => (note.categorizedQuestions as any)[tab.key]).map(tab => {
-                        const count = Object.values((note.categorizedQuestions as any)[tab.key] || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0);
+                        const count = Object.values((note.categorizedQuestions as any)[tab.key] || {}).reduce((total: number, arr: any) => total + (Array.isArray(arr) ? arr.length : 0), 0);
                         return (
                           <button
                             key={tab.key}
