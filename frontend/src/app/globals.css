@@ -47,22 +47,24 @@ body {
     padding: 2px 4px;
   }
   
-  /* Mobile-specific text adjustments for content areas only */
-  .summary-content p {
-    color: #1f2937 !important;
+  /* Mobile dark theme text fixes */
+  .dark * {
+    color: #ffffff !important;
   }
   
-  .dark .summary-content p {
-    color: #f3f4f6 !important;
+  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+    color: #60a5fa !important;
   }
   
-  /* Mobile practice question answer text */
-  .prose.dark\:prose-invert.prose-sm p {
-    color: #1f2937;
+  .dark p, .dark div, .dark span, .dark li {
+    color: #ffffff !important;
   }
   
-  .dark .prose.dark\:prose-invert.prose-sm p {
-    color: #f3f4f6;
+  /* Specific mobile summary content */
+  .dark .summary-content *,
+  .dark .prose *,
+  .dark [class*="prose"] * {
+    color: #ffffff !important;
   }
 }
 
