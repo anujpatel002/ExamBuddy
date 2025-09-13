@@ -169,6 +169,23 @@ html.dark .text-gray-100,
 .dark .text-gray-100 {
   color: #f3f4f6 !important;
 }
+
+/* Force summary content colors in dark mode */
+[data-theme="dark"] .summary-content *,
+html[data-theme="dark"] .summary-content *,
+.dark .summary-content *,
+html.dark .summary-content * {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .summary-content h1,
+[data-theme="dark"] .summary-content h2,
+[data-theme="dark"] .summary-content h3,
+html[data-theme="dark"] .summary-content h1,
+html[data-theme="dark"] .summary-content h2,
+html[data-theme="dark"] .summary-content h3 {
+  color: #60a5fa !important;
+}
 .dark .summary-content th { background: #334155 !important; border-color: #475569 !important; color: #f1f5f9 !important; }
 .dark .summary-content td { border-color: #475569 !important; color: #ffffff !important; }
 .dark .summary-content ul, .dark .summary-content ol, .dark .summary-content li { color: #ffffff !important; }
