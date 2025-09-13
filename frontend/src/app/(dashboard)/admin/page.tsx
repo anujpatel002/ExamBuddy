@@ -65,6 +65,9 @@ export default function AdminPanel() {
       const queryString = params.toString();
       const usersUrl = queryString ? `/admin/users?${queryString}` : '/admin/users';
       
+      console.log('Frontend sending request to:', usersUrl);
+      console.log('Filters:', { searchTerm, planFilter, statusFilter });
+      
       const usersRes = await api.get(usersUrl);
       const statsRes = await api.get('/admin/stats');
       

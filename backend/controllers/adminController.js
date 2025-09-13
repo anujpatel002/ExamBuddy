@@ -6,11 +6,11 @@ import Note from '../models/noteModel.js';
 // @route   GET /api/admin/users
 // @access  Private/Admin
 const getUsers = asyncHandler(async (req, res) => {
+  console.log('Request query params:', req.query);
   const { search, planFilter, statusFilter } = req.query;
   
   let query = {};
   
-  // Search by name or email
   if (search) {
     query.$or = [
       { name: { $regex: search, $options: 'i' } },
@@ -18,21 +18,27 @@ const getUsers = asyncHandler(async (req, res) => {
     ];
   }
   
-  // Filter by plan
   if (planFilter && planFilter !== 'all') {
     query['subscription.plan'] = planFilter;
   }
   
-  // Filter by verification status
   if (statusFilter && statusFilter !== 'all') {
-    if (statusFilter === 'verified') {
-      query.isVerified = true;
-    } else if (statusFilter === 'unverified') {
-      query.isVerified = false;
-    }
+    query.isVerified = statusFilter === 'verified';
   }
   
+  console.log('Final query:', JSON.stringify(query));
+  
+  // Test query without filters first
+  const allUsers = await User.find({}).select('-password').sort({ createdAt: -1 });
+  console.log(`Total users in DB: ${allUsers.length}`);
+  
   const users = await User.find(query).select('-password').sort({ createdAt: -1 });
+  console.log(`Found ${users.length} users with filters`);
+  
+  if (users.length > 0) {
+    console.log('Sample user plan:', users[0].subscription?.plan);
+    console.log('Sample user verified:', users[0].isVerified);
+  }
   res.json(users);
 });
 

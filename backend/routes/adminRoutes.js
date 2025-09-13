@@ -33,8 +33,8 @@ router.get('/users', protect, admin, async (req, res) => {
       page = 1, 
       limit = 20, 
       search = '', 
-      plan = '', 
-      status = '', 
+      planFilter = '', 
+      statusFilter = '', 
       sortBy = 'createdAt', 
       sortOrder = 'desc' 
     } = req.query;
@@ -47,8 +47,14 @@ router.get('/users', protect, admin, async (req, res) => {
         { email: { $regex: search, $options: 'i' } }
       ];
     }
-    if (plan) filter['subscription.plan'] = plan;
-    if (status) filter['subscription.status'] = status;
+    if (planFilter && planFilter !== 'all') {
+      filter['subscription.plan'] = planFilter;
+    }
+    if (statusFilter && statusFilter !== 'all') {
+      filter.isVerified = statusFilter === 'verified';
+    }
+    
+    const totalUsers = await User.countDocuments(filter);
     
     // Build sort query
     const sort = {};
@@ -61,8 +67,6 @@ router.get('/users', protect, admin, async (req, res) => {
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit));
-    
-    const totalUsers = await User.countDocuments(filter);
     
     const usersWithDetails = await Promise.all(users.map(async (user) => {
       const userObj = user.toObject();
