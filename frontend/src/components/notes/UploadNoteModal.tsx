@@ -85,7 +85,7 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
             type="file"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
-            accept=".pdf,.doc,.docx,.txt"
+            accept=".pdf,.doc,.docx,.txt,.ppt,.pptx"
             required
           />
         </div>

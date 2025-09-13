@@ -17,7 +17,7 @@ export const extractTextFromFile = async (file) => {
       const { value } = await mammoth.extractRawText({ buffer: file.buffer });
       return value || 'Word document uploaded successfully but no text content found.';
     } 
-    else if (file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+    else if (file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || file.mimetype === 'application/vnd.ms-powerpoint') {
       const data = await pptx2json.parse(file.buffer);
       let fullText = '';
       
@@ -54,7 +54,7 @@ export const extractTextFromFile = async (file) => {
       return file.buffer.toString('utf8');
     } 
     else {
-      throw new Error('Unsupported file type. Please upload a PDF, DOCX, TXT, or PPTX file.');
+      throw new Error('Unsupported file type. Please upload a PDF, DOCX, TXT, PPT, or PPTX file.');
     }
   } catch (error) {
     console.error(`File parsing error for ${file.mimetype}:`, error);
