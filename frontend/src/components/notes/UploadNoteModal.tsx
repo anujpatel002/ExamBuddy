@@ -81,11 +81,14 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
         
         <div>
           <label className="block text-sm font-medium mb-2">File</label>
+          <p className="text-sm text-red-600 dark:text-red-400 mb-2 font-medium">
+            Only PDF and Word documents are supported. If you have PowerPoint files, please convert them to PDF first.
+          </p>
           <input
             type="file"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
-            accept=".pdf,.doc,.docx,.txt,.ppt,.pptx"
+            accept=".pdf,.doc,.docx,.txt"
             required
           />
         </div>

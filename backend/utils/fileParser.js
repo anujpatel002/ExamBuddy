@@ -1,5 +1,4 @@
 import mammoth from 'mammoth';
-import pptx2json from 'pptx2json';
 
 export const extractTextFromFile = async (file) => {
   try {
@@ -17,44 +16,12 @@ export const extractTextFromFile = async (file) => {
       const { value } = await mammoth.extractRawText({ buffer: file.buffer });
       return value || 'Word document uploaded successfully but no text content found.';
     } 
-    else if (file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || file.mimetype === 'application/vnd.ms-powerpoint') {
-      const data = await pptx2json.parse(file.buffer);
-      let fullText = '';
-      
-      if (data.slides && Array.isArray(data.slides)) {
-        data.slides.forEach((slide, index) => {
-          fullText += `\n--- Slide ${index + 1} ---\n`;
-          
-          // Extract text content
-          if (slide.text) {
-            fullText += slide.text + '\n';
-          }
-          
-          // Extract shapes and text boxes
-          if (slide.shapes && Array.isArray(slide.shapes)) {
-            slide.shapes.forEach(shape => {
-              if (shape.text) {
-                fullText += shape.text + '\n';
-              }
-            });
-          }
-          
-          // Extract notes if available
-          if (slide.notes) {
-            fullText += `Notes: ${slide.notes}\n`;
-          }
-          
-          fullText += '\n';
-        });
-      }
-      
-      return fullText.trim() || 'PowerPoint uploaded successfully but no text content found.';
-    } 
+ 
     else if (file.mimetype === 'text/plain') {
       return file.buffer.toString('utf8');
     } 
     else {
-      throw new Error('Unsupported file type. Please upload a PDF, DOCX, TXT, PPT, or PPTX file.');
+      throw new Error('Unsupported file type. Please upload a PDF, DOCX, or TXT file.');
     }
   } catch (error) {
     console.error(`File parsing error for ${file.mimetype}:`, error);
