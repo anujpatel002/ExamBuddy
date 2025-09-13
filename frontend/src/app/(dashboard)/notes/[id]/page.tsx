@@ -240,6 +240,31 @@ export default function NoteDetailPage() {
   const [selectedQuiz, setSelectedQuiz] = useState<IQuiz | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [aiProgress, setAiProgress] = useState({ message: '', progress: 0 });
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Detect theme changes
+  useEffect(() => {
+    const checkTheme = () => {
+      const isDark = document.documentElement.classList.contains('dark') ||
+                    document.documentElement.getAttribute('data-theme') === 'dark' ||
+                    window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDarkMode(isDark);
+    };
+    
+    checkTheme();
+    
+    // Listen for theme changes
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+    
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    mediaQuery.addEventListener('change', checkTheme);
+    
+    return () => {
+      observer.disconnect();
+      mediaQuery.removeEventListener('change', checkTheme);
+    };
+  }, []);
 
   const fetchNoteAndQuizzes = async () => {
     if (!noteId) return;
@@ -535,11 +560,9 @@ export default function NoteDetailPage() {
                 <div 
                   className="prose dark:prose-invert max-w-none summary-content"
                   style={{
-                    color: typeof window !== 'undefined' && 
-                           (document.documentElement.classList.contains('dark') || 
-                            document.documentElement.getAttribute('data-theme') === 'dark' ||
-                            window.matchMedia('(prefers-color-scheme: dark)').matches) 
-                           ? '#ffffff' : '#374151'
+                    color: isDarkMode ? '#ffffff' : '#374151',
+                    '--tw-prose-body': isDarkMode ? '#ffffff' : '#374151',
+                    '--tw-prose-headings': isDarkMode ? '#60a5fa' : '#1f2937'
                   }}
                   dangerouslySetInnerHTML={{ __html: sanitizeHTML(note.summary) }} 
                 />
