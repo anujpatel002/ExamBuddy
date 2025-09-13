@@ -148,6 +148,27 @@ html.dark .summary-content p,
 html.dark .summary-content strong,
 .dark .summary-content strong { color: #f9fafb !important; font-weight: 700 !important; }
 .dark .summary-content em { color: #e5e7eb !important; font-style: italic !important; }
+
+/* Production deployment dark theme fixes */
+html.dark .prose.dark\:prose-invert.prose-sm p,
+.dark .prose.dark\:prose-invert.prose-sm p {
+  color: #f3f4f6 !important;
+}
+
+html.dark .text-red-400,
+.dark .text-red-400 {
+  color: #f87171 !important;
+}
+
+html.dark .text-gray-200,
+.dark .text-gray-200 {
+  color: #e5e7eb !important;
+}
+
+html.dark .text-gray-100,
+.dark .text-gray-100 {
+  color: #f3f4f6 !important;
+}
 .dark .summary-content th { background: #334155 !important; border-color: #475569 !important; color: #f1f5f9 !important; }
 .dark .summary-content td { border-color: #475569 !important; color: #ffffff !important; }
 .dark .summary-content ul, .dark .summary-content ol, .dark .summary-content li { color: #ffffff !important; }
