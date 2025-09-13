@@ -57,7 +57,7 @@ export default function SoloQuizPage() {
                         <Button variant="secondary" onClick={() => setIsReviewMode(!isReviewMode)}>
                             {isReviewMode ? 'Hide Answers' : 'View Answers'}
                         </Button>
-                        <Button onClick={() => router.push(`/notes/${quiz.note}`)}>Back to Note</Button>
+                        <Button onClick={() => router.replace(`/notes/${quiz.note}`)}>Back to Note</Button>
                     </div>
                 </div>
 

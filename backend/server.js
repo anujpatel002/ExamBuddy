@@ -48,7 +48,7 @@ app.use(securityHeaders);
 // 2. CORS middleware must be next.
 const allowedOrigins = [
   'http://localhost:3000',
-  'http://192.168.1.14:3000',
+  'http://192.168.1.4:3000',
   'https://exambuddy-delta.vercel.app'
 ];
 const corsOptions = {

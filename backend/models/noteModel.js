@@ -12,14 +12,9 @@ const noteSchema = mongoose.Schema(
     textContent: { type: String, required: true },
     status: { type: String, required: true, enum: ['pending', 'approved', 'rejected'], default: 'approved' },
     summary: { type: String },
-    flashcards: [{ question: String, answer: String }],
-    categorizedQuestions: {
-      oneMarker: [{ question: String, answer: String }],
-      threeMarker: [{ question: String, answer: String }],
-      fourMarker: [{ question: String, answer: String }],
-      fiveMarker: [{ question: String, answer: String }],
-    },
-    mindMap: { type: Object },
+    flashcards: { type: mongoose.Schema.Types.Mixed },
+    categorizedQuestions: { type: mongoose.Schema.Types.Mixed },
+    mindMap: { type: mongoose.Schema.Types.Mixed },
     embeddingStatus: {
       type: String,
       enum: ['pending', 'completed', 'failed'],

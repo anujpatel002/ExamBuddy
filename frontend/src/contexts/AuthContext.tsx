@@ -26,6 +26,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(JSON.parse(userInfoString));
     }
     setLoading(false);
+    
+    // Handle browser close/refresh
+    const handleBeforeUnload = () => {
+      localStorage.setItem('resetFlashcards', 'true');
+      sessionStorage.removeItem('flashcardsReset');
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
 
   useEffect(() => {
@@ -68,6 +77,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = useCallback(() => {
     localStorage.removeItem('userInfo');
+    localStorage.setItem('resetFlashcards', 'true');
+    sessionStorage.removeItem('flashcardsReset');
     setUser(null);
     router.push('/');
   }, [router]);

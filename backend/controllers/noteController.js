@@ -1,6 +1,7 @@
 import asyncHandler from 'express-async-handler';
 import Note from '../models/noteModel.js';
 import User from '../models/userModel.js';
+import Quiz from '../models/quizModel.js';
 import { extractTextFromFile } from '../utils/fileParser.js';
 import crypto from 'crypto';
 import { createEmbeddingsForNote } from '../utils/vectorStore.js';
@@ -89,6 +90,18 @@ const getNoteById = asyncHandler(async (req, res) => {
             res.status(403);
             throw new Error('Not authorized to view this note');
         }
+        
+        console.log('=== BACKEND - NOTE FETCH ===');
+        console.log('User ID:', req.user._id);
+        console.log('Note ID:', req.params.id);
+        if (note.flashcards) {
+            console.log('Theory displayed in DB:', note.flashcards.theory?.length || 0);
+            console.log('Practical displayed in DB:', note.flashcards.practical?.length || 0);
+            console.log('Theory total in DB:', note.flashcards.allGenerated?.theory?.length || 0);
+            console.log('Practical total in DB:', note.flashcards.allGenerated?.practical?.length || 0);
+        }
+        console.log('=== END BACKEND FETCH ===');
+        
         res.json(note);
     } else {
         res.status(404);
@@ -145,11 +158,92 @@ const deleteMultipleNotes = asyncHandler(async (req, res) => {
   res.json({ message: `${notes.length} notes were removed.` });
 });
 
+const resetFlashcards = asyncHandler(async (req, res) => {
+  const note = await Note.findById(req.params.id);
+  
+  if (!note || note.user.toString() !== req.user._id.toString()) {
+    res.status(404);
+    throw new Error('Note not found or user not authorized');
+  }
+  
+  const { displayedCount } = req.body;
+  
+  if (note.flashcards && displayedCount) {
+    // Reset the displayed flashcards based on the new displayed count
+    if (displayedCount.theory !== undefined) {
+      const theoryCards = note.flashcards.allGenerated?.theory?.slice(0, displayedCount.theory) || [];
+      note.flashcards.theory = theoryCards;
+      note.flashcards.displayedCount.theory = displayedCount.theory;
+    }
+    
+    if (displayedCount.practical !== undefined) {
+      const practicalCards = note.flashcards.allGenerated?.practical?.slice(0, displayedCount.practical) || [];
+      note.flashcards.practical = practicalCards;
+      note.flashcards.displayedCount.practical = displayedCount.practical;
+    }
+    
+    note.markModified('flashcards');
+    await note.save();
+  }
+  
+  res.json({ message: 'Content reset successfully' });
+});
+
+const resetPracticeQuestions = asyncHandler(async (req, res) => {
+  const note = await Note.findById(req.params.id);
+  
+  if (!note || note.user.toString() !== req.user._id.toString()) {
+    res.status(404);
+    throw new Error('Note not found or user not authorized');
+  }
+  
+  if (note.categorizedQuestions && note.categorizedQuestions.allGenerated) {
+    const markerKeys = ['oneMarker', 'threeMarker', 'fourMarker', 'fiveMarker'];
+    
+    markerKeys.forEach(key => {
+      if (note.categorizedQuestions.allGenerated[key]) {
+        const questionsToShow = note.categorizedQuestions.allGenerated[key].slice(0, 3);
+        note.categorizedQuestions[key] = questionsToShow;
+        note.categorizedQuestions.displayedCount[key] = questionsToShow.length;
+      }
+    });
+    
+    note.markModified('categorizedQuestions');
+    await note.save();
+  }
+  
+  res.json({ message: 'Practice questions reset successfully' });
+});
+
+const resetQuizzes = asyncHandler(async (req, res) => {
+  const { noteId } = req.params;
+  
+  // Hide all quizzes except the first 3 for this note
+  await Quiz.updateMany(
+    { note: noteId, createdBy: req.user._id },
+    { isVisible: false }
+  );
+  
+  const quizzesToShow = await Quiz.find(
+    { note: noteId, createdBy: req.user._id }
+  ).sort({ createdAt: 1 }).limit(3);
+  
+  await Quiz.updateMany(
+    { _id: { $in: quizzesToShow.map(q => q._id) } },
+    { isVisible: true }
+  );
+  
+  res.json({ message: 'Quizzes reset successfully' });
+});
+
 export { 
   uploadNote, 
   getMyNotes, 
   getNoteById, 
   deleteNote, 
   updateNote,
-  deleteMultipleNotes 
+  deleteMultipleNotes,
+  resetFlashcards,
+  resetPracticeQuestions,
+  resetQuizzes
 };

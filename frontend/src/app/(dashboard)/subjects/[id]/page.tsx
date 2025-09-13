@@ -20,6 +20,74 @@ import SkeletonCard from '@/components/ui/SkeletonCard';
 interface Note { _id: string; title: string; createdAt: string; status: 'approved' | 'pending'; }
 interface Subject { _id: string; name: string; questionBank: any[]; studyPlan?: any }
 
+// Q-Bank Question Card Component
+const QBankQuestionCard = ({ question, index }: { question: any; index: number }) => {
+  const [showAnswer, setShowAnswer] = useState(false);
+  
+  return (
+    <div className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-all duration-300 ${showAnswer ? 'shadow-lg' : ''}`}>
+      <div className="bg-gray-50 dark:bg-gray-800/50 p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                Question {index + 1}
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
+                {question.marks} Mark{question.marks > 1 ? 's' : ''}
+              </span>
+              {question.source && (
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  question.type === 'combination' 
+                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300'
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-900/50 dark:text-gray-300'
+                }`}>
+                  {question.source}
+                </span>
+              )}
+            </div>
+            <h4 className="font-medium text-gray-900 dark:text-gray-100 leading-relaxed mb-3">{question.question}</h4>
+            
+            {showAnswer && (
+              <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-700">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-sm font-semibold text-green-700 dark:text-green-300">ANSWER</span>
+                </div>
+                <div className="space-y-3">
+                  <div 
+                    className="prose dark:prose-invert prose-sm max-w-none text-sm leading-7 space-y-2"
+                    dangerouslySetInnerHTML={{ 
+                      __html: sanitizeHTML(question.answer)
+                        .replace(/\n\n/g, '</p><p class="mt-3">')
+                        .replace(/\n/g, '<br>')
+                        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100 bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">$1</strong>')
+                        .replace(/^(\d+\.|•|-)\s/gm, '<span class="font-medium text-indigo-600 dark:text-indigo-400">$&</span>')
+                    }} 
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div className="mt-4">
+              <button
+                onClick={() => setShowAnswer(!showAnswer)}
+                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+                  showAnswer 
+                    ? 'bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/50 dark:hover:bg-green-900/70 dark:text-green-300'
+                    : 'bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/50 dark:hover:bg-blue-900/70 dark:text-blue-300'
+                }`}
+              >
+                {showAnswer ? '👁️ Hide Answer' : '👀 Show Answer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function SubjectDetailPage() {
   const { id: subjectId } = useParams();
   const router = useRouter();
@@ -38,12 +106,17 @@ export default function SubjectDetailPage() {
   const [noteToManage, setNoteToManage] = useState<Note | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeQBankTab, setActiveQBankTab] = useState('oneMarker');
+  const [activeQBankType, setActiveQBankType] = useState('theory');
+  const [qbankProgress, setQbankProgress] = useState({ message: '', progress: 0 });
 
   const fetchSubjectDetails = async () => {
     if (!subjectId) return;
     setIsLoading(true);
     try {
       const { data } = await api.get(`/subjects/${subjectId}`);
+      console.log('Subject data:', data.subject);
+      console.log('Question bank:', data.subject.questionBank);
       setSubject(data.subject);
       setNotes(data.notes);
       setStudyPlan(data.subject.studyPlan || null);
@@ -56,7 +129,30 @@ export default function SubjectDetailPage() {
 
   useEffect(() => {
     fetchSubjectDetails();
+    
+    // Socket connection for progress updates
+    if (typeof window !== 'undefined') {
+      import('socket.io-client').then(({ io }) => {
+        const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001', {
+          auth: { token: localStorage.getItem('token') }
+        });
+        
+        socket.on('qbank-progress', (data) => {
+          setQbankProgress(data);
+        });
+        
+        return () => socket.disconnect();
+      });
+    }
   }, [subjectId]);
+
+  useEffect(() => {
+    if (subject?.questionBank) {
+      if (subject.questionBank.theory) {
+        setActiveQBankType('theory');
+      }
+    }
+  }, [subject?.questionBank]);
 
   const handleSelectNote = (noteId: string) => {
     setSelectedNotes(prev =>
@@ -225,57 +321,170 @@ export default function SubjectDetailPage() {
       )}
 
       {activeTab === 'qbank' && (
-        <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 md:p-6 rounded-lg shadow">
-          <h2 className="text-lg sm:text-xl md:text-2xl font-semibold mb-3 sm:mb-4">AI-Curated Question Bank</h2>
-          {subject?.questionBank && subject.questionBank.length > 0 ? (
-            <div className="space-y-3 sm:space-y-4">
-              {subject.questionBank.sort((a, b) => a.importance - b.importance).map((topicItem: any) => (
-                <div key={topicItem.topic} className="border dark:border-gray-700 rounded-lg p-3 sm:p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 sm:mb-3">
-                    <h3 className="font-semibold text-base sm:text-lg mb-1 sm:mb-0">{topicItem.topic}</h3>
-                    <span className="text-xs sm:text-sm bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 px-2 py-1 rounded-full self-start">
-                      Priority: {topicItem.importance}
-                    </span>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+          {subject?.questionBank && (
+            (subject.questionBank.oneMarker?.length > 0 || subject.questionBank.threeMarker?.length > 0 || subject.questionBank.fourMarker?.length > 0 || subject.questionBank.fiveMarker?.length > 0) ||
+            (subject.questionBank.theory || subject.questionBank.practical)
+          ) ? (
+            <div>
+              {/* Header */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">AI-Curated Question Bank</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Comprehensive questions from all uploaded notes with unit combinations</p>
                   </div>
-                  <div className="space-y-2 sm:space-y-3">
-                    {topicItem.questions.map((q: any, i: number) => (
-                      <div key={i} className="border-l-4 border-indigo-500 pl-3 sm:pl-4 bg-gray-50 dark:bg-gray-700/50 rounded-r-lg py-2 sm:py-3">
-                        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2 mb-2">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 self-start">
-                            {q.marks} Mark{q.marks > 1 ? 's' : ''}
-                          </span>
-                          <h4 className="font-medium text-sm sm:text-base flex-1">{q.question}</h4>
-                        </div>
-                        <div className="prose dark:prose-invert prose-sm sm:prose-base max-w-none mt-2 text-sm sm:text-base overflow-x-auto" dangerouslySetInnerHTML={{ __html: q.answer }} />
-                      </div>
-                    ))}
+                  <div className="flex items-center gap-3">
+                    <span className="bg-white dark:bg-gray-800 px-3 py-1 rounded-full border text-sm text-gray-500 dark:text-gray-400">
+                      {subject.questionBank ? (
+                        (subject.questionBank.theory || subject.questionBank.practical) ? 
+                          Object.values(subject.questionBank.theory || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0) +
+                          Object.values(subject.questionBank.practical || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0)
+                        : Object.values(subject.questionBank).reduce((total: number, arr: any) => total + (arr?.length || 0), 0)
+                      ) : 0} Questions
+                    </span>
+                    <Button 
+                      onClick={async () => {
+                        setIsSubmitting(true);
+                        setQbankProgress({ message: 'Starting...', progress: 0 });
+                        try {
+                          await api.post(`/question-bank/${subjectId}`);
+                          toast.success('Question Bank regenerated successfully!');
+                          await fetchSubjectDetails();
+                        } catch (error: any) {
+                          toast.error(error.response?.data?.message || 'Failed to regenerate Question Bank.');
+                        } finally {
+                          setIsSubmitting(false);
+                          setQbankProgress({ message: '', progress: 0 });
+                        }
+                      }}
+                      variant="secondary"
+                      size="sm"
+                      isLoading={isSubmitting}
+                    >
+                      {isSubmitting ? `${qbankProgress.message} (${qbankProgress.progress}%)` : '🔄 Regenerate'}
+                    </Button>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Type Tabs (Theory/Practical) */}
+              {(subject.questionBank.theory || subject.questionBank.practical) && (
+                <div className="bg-gray-100 dark:bg-gray-700/50 px-4 sm:px-6">
+                  <nav className="-mb-px flex space-x-1" aria-label="Type Tabs">
+                    {[
+                      { key: 'theory', label: 'Theory', icon: '📚' },
+                      { key: 'practical', label: 'Practical', icon: '⚡' }
+                    ].filter(tab => subject.questionBank[tab.key]).map(tab => {
+                      const count = Object.values(subject.questionBank[tab.key] || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0);
+                      return (
+                        <button
+                          key={tab.key}
+                          onClick={() => setActiveQBankType(tab.key)}
+                          className={`${activeQBankType === tab.key 
+                            ? 'border-purple-500 text-purple-600 bg-white dark:bg-gray-800' 
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                          } whitespace-nowrap py-2 px-4 border-b-2 font-medium text-sm transition-all duration-200 flex items-center gap-2`}
+                        >
+                          <span>{tab.icon}</span>
+                          {tab.label}
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            activeQBankType === tab.key 
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300' 
+                              : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                          }`}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </nav>
+                </div>
+              )}
+
+              {/* Category Tabs */}
+              <div className="bg-gray-50 dark:bg-gray-800/50 px-4 sm:px-6">
+                <nav className="-mb-px flex space-x-1 overflow-x-auto" aria-label="Tabs">
+                  {[
+                    { key: 'oneMarker', label: '1 Marker' },
+                    { key: 'threeMarker', label: '3 Marker' },
+                    { key: 'fourMarker', label: '4 Marker' },
+                    { key: 'fiveMarker', label: '5 Marker' }
+                  ].filter(tab => {
+                    const currentBank = (subject.questionBank.theory || subject.questionBank.practical) ? subject.questionBank[activeQBankType] : subject.questionBank;
+                    return currentBank && currentBank[tab.key]?.length > 0;
+                  }).map(tab => {
+                    const currentBank = (subject.questionBank.theory || subject.questionBank.practical) ? subject.questionBank[activeQBankType] : subject.questionBank;
+                    const count = currentBank?.[tab.key]?.length || 0;
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => setActiveQBankTab(tab.key)}
+                        className={`${activeQBankTab === tab.key 
+                          ? 'border-indigo-500 text-indigo-600 bg-white dark:bg-gray-800' 
+                          : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-800/50'
+                        } whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-all duration-200 rounded-t-lg flex items-center gap-2`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${
+                          activeQBankTab === tab.key ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}></span>
+                        {tab.label}
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          activeQBankTab === tab.key 
+                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' 
+                            : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+
+              {/* Questions Content */}
+              <div className="p-4 sm:p-6">
+                <div className="space-y-4">
+                  {(() => {
+                    const currentBank = (subject.questionBank.theory || subject.questionBank.practical) ? subject.questionBank[activeQBankType] : subject.questionBank;
+                    return currentBank?.[activeQBankTab]?.map((q: any, index: number) => (
+                      <QBankQuestionCard key={index} question={q} index={index} />
+                    ));
+                  })()}
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="text-center py-8 sm:py-12">
-              <FiTarget className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
-              <h3 className="mt-2 text-lg sm:text-xl font-semibold">Generate Your Question Bank</h3>
-              <p className="mt-1 text-sm text-gray-500 mb-4 px-4">Analyze all notes in this subject to generate a prioritized question bank.</p>
-              <Button 
-                onClick={async () => {
-                  setIsSubmitting(true);
-                  try {
-                    await api.post(`/question-bank/${subjectId}`);
-                    toast.success('Question Bank generated successfully!');
-                    fetchSubjectDetails();
-                  } catch (error: any) {
-                    toast.error(error.response?.data?.message || 'Failed to generate Question Bank.');
-                  } finally {
-                    setIsSubmitting(false);
-                  }
-                }} 
-                isLoading={isSubmitting}
-                className="w-full sm:w-auto"
-              >
-                Generate Question Bank
-              </Button>
+            <div className="p-8 text-center">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/30 rounded-2xl p-8">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FiTarget className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Generate Your Question Bank</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                  Analyze all notes in this subject to generate comprehensive questions with unit combinations for better exam preparation.
+                </p>
+                <Button 
+                  onClick={async () => {
+                    setIsSubmitting(true);
+                    setQbankProgress({ message: 'Starting...', progress: 0 });
+                    try {
+                      await api.post(`/question-bank/${subjectId}`);
+                      toast.success('Question Bank generated successfully!');
+                      await fetchSubjectDetails();
+                    } catch (error: any) {
+                      toast.error(error.response?.data?.message || 'Failed to generate Question Bank.');
+                    } finally {
+                      setIsSubmitting(false);
+                      setQbankProgress({ message: '', progress: 0 });
+                    }
+                  }} 
+                  isLoading={isSubmitting}
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-3"
+                >
+                  {isSubmitting ? `${qbankProgress.message} (${qbankProgress.progress}%)` : '🚀 Generate Question Bank'}
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -283,7 +492,32 @@ export default function SubjectDetailPage() {
 
       {activeTab === 'studyplan' && (
         <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow">
-          <h2 className="text-xl md:text-2xl font-semibold mb-4">AI Study Plan</h2>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
+            <h2 className="text-xl md:text-2xl font-semibold">AI Study Plan</h2>
+            {studyPlan && (
+              <Button 
+                onClick={async () => {
+                  setIsSubmitting(true);
+                  try {
+                    const { data } = await api.post(`/ai/study-plan/${subjectId}`);
+                    setStudyPlan(data.studyPlan);
+                    toast.success('Study plan regenerated successfully!');
+                    fetchSubjectDetails();
+                  } catch (error: any) {
+                    toast.error(error.response?.data?.message || 'Failed to regenerate study plan.');
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                variant="secondary"
+                size="sm"
+                isLoading={isSubmitting}
+                className="w-full sm:w-auto"
+              >
+                🔄 Regenerate
+              </Button>
+            )}
+          </div>
           {studyPlan ? (
             <div className="space-y-4">
               {studyPlan.weeks?.map((week: any, index: number) => (

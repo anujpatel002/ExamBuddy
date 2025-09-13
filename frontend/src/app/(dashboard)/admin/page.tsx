@@ -160,26 +160,26 @@ export default function AdminPanel() {
 
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-8">
+        <nav className="-mb-px flex overflow-x-auto scrollbar-hide">
           {[
             { id: 'dashboard', label: 'Dashboard', icon: FiBarChart },
             { id: 'users', label: 'Users', icon: FiUsers },
             { id: 'analytics', label: 'Analytics', icon: FiBarChart },
-            { id: 'system', label: 'System Health', icon: FiSettings },
-            ...(user?.role === 'admin' ? [{ id: 'admins', label: 'Sub-Admins', icon: FiUsers }] : []),
+            { id: 'system', label: 'System', icon: FiSettings },
+            ...(user?.role === 'admin' ? [{ id: 'admins', label: 'Admins', icon: FiUsers }] : []),
             { id: 'settings', label: 'Settings', icon: FiSettings }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-2 md:px-4 border-b-2 font-medium text-xs md:text-sm whitespace-nowrap min-w-0 flex-shrink-0 ${
                 activeTab === tab.id
                   ? 'border-indigo-500 text-indigo-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              <tab.icon className="w-5 h-5" />
-              {tab.label}
+              <tab.icon className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
         </nav>

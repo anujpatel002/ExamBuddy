@@ -15,26 +15,28 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { parseAndSanitize } from '../utils/markdownParser.js';
 import { extractTextFromFile } from '../utils/fileParser.js';
 
-const QUIZ_LIMITS = {
-    free: { maxQuizzesPerNote: 1, maxMCQs: 10 },
-    pro: { maxQuizzesPerNote: 5, maxMCQs: 25 },
-    premium: { maxQuizzesPerNote: 50, maxMCQs: 100 },
-    ultra: { maxQuizzesPerNote: Infinity, maxMCQs: Infinity }
-};
-
 const createSummary = asyncHandler(async (req, res) => {
     const note = await Note.findById(req.params.noteId);
     if (!note || note.user.toString() !== req.user._id.toString()) {
         res.status(404);
         throw new Error('Note not found or user not authorized');
     }
+    
+    const emitProgress = (message, progress) => {
+        if (req.io && req.userSocketMap[req.user._id]) {
+            req.io.to(req.userSocketMap[req.user._id]).emit('ai-progress', { message, progress });
+        }
+    };
+    
+    emitProgress('Analyzing content...', 30);
     const summaryMarkdown = await generateSummary(note.textContent);
+    emitProgress('Formatting summary...', 80);
     note.summary = parseAndSanitize(summaryMarkdown); 
     await note.save();
     
-    // Update user credits
     await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
     
+    emitProgress('Summary completed!', 100);
     res.json({ summary: note.summary });
 });
 
@@ -44,359 +46,473 @@ const createFlashcards = asyncHandler(async (req, res) => {
         res.status(404);
         throw new Error('Note not found or user not authorized');
     }
-    const newFlashcards = await generateFlashcards(note.textContent, note.flashcards.length);
-    note.flashcards.push(...newFlashcards);
+    
+    const emitProgress = (message, progress) => {
+        if (req.io && req.userSocketMap[req.user._id]) {
+            req.io.to(req.userSocketMap[req.user._id]).emit('ai-progress', { message, progress });
+        }
+    };
+    
+    emitProgress('Creating flashcards...', 40);
+    const { type } = req.body;
+    
+    // Initialize structure if needed
+    if (!note.flashcards || Array.isArray(note.flashcards)) {
+        note.flashcards = { 
+            theory: [], 
+            practical: [],
+            allGenerated: { theory: [], practical: [] },
+            displayedCount: { theory: 0, practical: 0 }
+        };
+    }
+    if (!note.flashcards.allGenerated) {
+        note.flashcards.allGenerated = { theory: [], practical: [] };
+    }
+    if (!note.flashcards.displayedCount) {
+        note.flashcards.displayedCount = { theory: 0, practical: 0 };
+    }
+    
+    console.log('=== FLASHCARD GENERATION DEBUG ===');
+    console.log('Request type:', type);
+    console.log('Current displayed counts:', note.flashcards.displayedCount);
+    console.log('Total generated counts:', {
+        theory: note.flashcards.allGenerated.theory?.length || 0,
+        practical: note.flashcards.allGenerated.practical?.length || 0
+    });
+    
+    // Check if we have unused flashcards in database first
+    const showFromExisting = (type) => {
+        const allCards = note.flashcards.allGenerated[type] || [];
+        const currentDisplayed = note.flashcards.displayedCount[type] || 0;
+        const remainingCards = allCards.slice(currentDisplayed);
+        
+        console.log(`${type} - Total: ${allCards.length}, Displayed: ${currentDisplayed}, Remaining: ${remainingCards.length}`);
+        
+        if (remainingCards.length > 0) {
+            // Random batch size between 3-5 cards
+            const batchSizes = [3, 4, 5];
+            const randomBatchSize = batchSizes[Math.floor(Math.random() * batchSizes.length)];
+            const actualBatchSize = Math.min(randomBatchSize, remainingCards.length);
+            
+            const cardsToShow = remainingCards.slice(0, actualBatchSize);
+            const currentCards = note.flashcards[type] || [];
+            note.flashcards[type] = [...currentCards, ...cardsToShow];
+            note.flashcards.displayedCount[type] = currentDisplayed + cardsToShow.length;
+            console.log(`Loaded ${cardsToShow.length} more ${type} flashcards from database (batch size: ${actualBatchSize}). Total displayed: ${note.flashcards.displayedCount[type]}/${allCards.length}`);
+            return true;
+        } else {
+            console.log(`No more ${type} flashcards available in database`);
+        }
+        return false;
+    };
+    
+    let usedExisting = false;
+    
+    if (type === 'theory') {
+        usedExisting = showFromExisting('theory');
+    } else if (type === 'practical') {
+        usedExisting = showFromExisting('practical');
+    } else if (!type) {
+        // Initial load - show first 5 from each type if available
+        const theoryUsed = showFromExisting('theory');
+        const practicalUsed = showFromExisting('practical');
+        usedExisting = theoryUsed || practicalUsed;
+    }
+    
+    console.log('Used existing flashcards:', usedExisting);
+    
+    // Only generate new flashcards if we didn't use existing ones
+    if (!usedExisting) {
+        const existingQuestions = [];
+        if (note.flashcards.allGenerated.theory) existingQuestions.push(...note.flashcards.allGenerated.theory.map(fc => fc.question));
+        if (note.flashcards.allGenerated.practical) existingQuestions.push(...note.flashcards.allGenerated.practical.map(fc => fc.question));
+        
+        try {
+            const newFlashcards = await generateFlashcards(note.textContent, 0, type, existingQuestions, 10);
+            
+            const isUniqueQuestion = (newQuestion, existingCards) => {
+                const normalizeQuestion = (q) => q.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+                const newQ = normalizeQuestion(newQuestion);
+                return !existingCards.some(card => {
+                    const existingQ = normalizeQuestion(card.question);
+                    return existingQ === newQ;
+                });
+            };
+            
+            if (type === 'theory' && newFlashcards?.theory) {
+                const allExisting = note.flashcards.allGenerated.theory || [];
+                const uniqueTheory = newFlashcards.theory.filter(card => 
+                    isUniqueQuestion(card.question, allExisting)
+                );
+                note.flashcards.allGenerated.theory = [...allExisting, ...uniqueTheory];
+                const cardsToShow = uniqueTheory.slice(0, 5);
+                note.flashcards.theory = [...(note.flashcards.theory || []), ...cardsToShow];
+                note.flashcards.displayedCount.theory = (note.flashcards.displayedCount.theory || 0) + cardsToShow.length;
+            } else if (type === 'practical' && newFlashcards?.practical) {
+                const allExisting = note.flashcards.allGenerated.practical || [];
+                const uniquePractical = newFlashcards.practical.filter(card => 
+                    isUniqueQuestion(card.question, allExisting)
+                );
+                note.flashcards.allGenerated.practical = [...allExisting, ...uniquePractical];
+                const cardsToShow = uniquePractical.slice(0, 5);
+                note.flashcards.practical = [...(note.flashcards.practical || []), ...cardsToShow];
+                note.flashcards.displayedCount.practical = (note.flashcards.displayedCount.practical || 0) + cardsToShow.length;
+            } else if (!type && newFlashcards) {
+                // Initial generation
+                const allExistingTheory = note.flashcards.allGenerated.theory || [];
+                const allExistingPractical = note.flashcards.allGenerated.practical || [];
+                
+                const uniqueTheory = (newFlashcards?.theory || []).filter(card => 
+                    isUniqueQuestion(card.question, allExistingTheory)
+                );
+                const uniquePractical = (newFlashcards?.practical || []).filter(card => 
+                    isUniqueQuestion(card.question, allExistingPractical)
+                );
+                
+                note.flashcards.allGenerated.theory = [...allExistingTheory, ...uniqueTheory];
+                note.flashcards.allGenerated.practical = [...allExistingPractical, ...uniquePractical];
+                
+                const theoryToShow = uniqueTheory.slice(0, 5);
+                const practicalToShow = uniquePractical.slice(0, 5);
+                
+                note.flashcards.theory = theoryToShow;
+                note.flashcards.practical = practicalToShow;
+                note.flashcards.displayedCount.theory = theoryToShow.length;
+                note.flashcards.displayedCount.practical = practicalToShow.length;
+                console.log('Initial generation completed - Theory:', theoryToShow.length, 'Practical:', practicalToShow.length);
+            }
+            
+            // Only count credit for AI generation, not loading from DB
+            await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+        } catch (error) {
+            console.error('AI generation failed:', error);
+            throw new Error('Failed to generate flashcards');
+        }
+    }
+    
+    // Force save with markModified
+    note.markModified('flashcards');
     await note.save();
+    const savedNote = await Note.findById(req.params.noteId);
     
-    // Update user credits
-    await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+    console.log('=== SAVE VERIFICATION ===');
+    console.log('Saved flashcard counts:', {
+        theory: savedNote.flashcards?.theory?.length || 0,
+        practical: savedNote.flashcards?.practical?.length || 0,
+        theoryDisplayed: savedNote.flashcards?.displayedCount?.theory || 0,
+        practicalDisplayed: savedNote.flashcards?.displayedCount?.practical || 0
+    });
+    console.log('=== END SAVE VERIFICATION ===');
     
-    res.json({ flashcards: note.flashcards });
+    // Credit already counted in AI generation block if new content was generated
+    
+    emitProgress('Flashcards ready!', 100);
+    res.json({ flashcards: savedNote.flashcards });
 });
 
 const createQuiz = asyncHandler(async (req, res) => {
-    const { quizName, questionCount } = req.body;
     const note = await Note.findById(req.params.noteId);
-    const user = await User.findById(req.user._id);
-    const plan = user.subscription.plan;
-    const limits = QUIZ_LIMITS[plan];
-
-    if (!quizName) {
-        res.status(400); throw new Error('Quiz name is required.');
-    }
     if (!note || note.user.toString() !== req.user._id.toString()) {
-        res.status(404); throw new Error('Note not found or user not authorized');
+        res.status(404);
+        throw new Error('Note not found or user not authorized');
     }
     
-    if (questionCount > limits.maxMCQs) {
-        res.status(403);
-        throw new Error(`Your ${plan} plan allows a maximum of ${limits.maxMCQs} MCQs per quiz.`);
-    }
-
-    const existingQuizzes = await Quiz.countDocuments({ note: req.params.noteId });
-    if (existingQuizzes >= limits.maxQuizzesPerNote) {
-        res.status(403);
-        throw new Error(`Your ${plan} plan allows a maximum of ${limits.maxQuizzesPerNote} quizzes per note.`);
-    }
-
-    const quizData = await generateQuiz(note.textContent, questionCount);
+    const { quizName, questionCount } = req.body;
+    
+    const emitProgress = (message, progress) => {
+        if (req.io && req.userSocketMap[req.user._id]) {
+            req.io.to(req.userSocketMap[req.user._id]).emit('ai-progress', { message, progress });
+        }
+    };
+    
+    emitProgress('Generating quiz questions...', 40);
+    
+    const quizData = await generateQuiz(note.textContent, questionCount || 10);
+    
+    emitProgress('Creating quiz...', 80);
+    
     const quiz = new Quiz({
         title: quizName,
         note: note._id,
         createdBy: req.user._id,
-        questions: quizData.mcqs,
-        descriptiveQuestions: quizData.descriptive,
+        questions: quizData.mcqs || [],
+        isVisible: true
     });
-    const createdQuiz = await quiz.save();
     
-    // Update user credits
+    await quiz.save();
     await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
     
-    res.status(201).json(createdQuiz);
+    emitProgress('Quiz ready!', 100);
+    res.json({ quiz, message: 'Quiz created successfully!' });
 });
 
 const createCategorizedQuestions = asyncHandler(async (req, res) => {
-  const note = await Note.findById(req.params.noteId);
-  if (!note || note.user.toString() !== req.user._id.toString()) {
-    res.status(404);
-    throw new Error('Note not found');
-  }
-  const questions = await generateMarkBasedQuestions(note.textContent);
-  for (const category in questions) {
-    if (Array.isArray(questions[category])) {
-      questions[category] = questions[category].map(q => ({ ...q, answer: parseAndSanitize(q.answer) }));
+    const note = await Note.findById(req.params.noteId);
+    if (!note || note.user.toString() !== req.user._id.toString()) {
+        res.status(404);
+        throw new Error('Note not found or user not authorized');
     }
-  }
-  note.categorizedQuestions = questions;
-  await note.save();
-  
-  // Update user credits
-  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
-  
-  res.status(201).json(note.categorizedQuestions);
+    
+    const emitProgress = (message, progress) => {
+        if (req.io && req.userSocketMap[req.user._id]) {
+            req.io.to(req.userSocketMap[req.user._id]).emit('ai-progress', { message, progress });
+        }
+    };
+    
+    const { markers } = req.body;
+    
+    // Initialize progressive loading structure
+    if (!note.categorizedQuestions) {
+        note.categorizedQuestions = {};
+    }
+    if (!note.categorizedQuestions.allGenerated) {
+        note.categorizedQuestions.allGenerated = {};
+    }
+    if (!note.categorizedQuestions.displayedCount) {
+        note.categorizedQuestions.displayedCount = {};
+    }
+    
+    const markerKeyMap = {
+        '1': 'oneMarker',
+        '3': 'threeMarker', 
+        '4': 'fourMarker',
+        '5': 'fiveMarker'
+    };
+    
+    // Check if we have unused questions in database first
+    const showFromExisting = (markerKey, type = null) => {
+        if (type) {
+            // Handle theory/practical structure
+            const allQuestions = note.categorizedQuestions.allGenerated?.[type]?.[markerKey] || [];
+            const currentDisplayed = note.categorizedQuestions.displayedCount?.[type]?.[markerKey] || 0;
+            const remainingQuestions = allQuestions.slice(currentDisplayed);
+            
+            if (remainingQuestions.length > 0) {
+                const batchSize = Math.min(3, remainingQuestions.length);
+                const questionsToShow = remainingQuestions.slice(0, batchSize);
+                
+                if (!note.categorizedQuestions[type]) note.categorizedQuestions[type] = {};
+                const currentQuestions = note.categorizedQuestions[type][markerKey] || [];
+                note.categorizedQuestions[type][markerKey] = [...currentQuestions, ...questionsToShow];
+                
+                if (!note.categorizedQuestions.displayedCount[type]) note.categorizedQuestions.displayedCount[type] = {};
+                note.categorizedQuestions.displayedCount[type][markerKey] = currentDisplayed + questionsToShow.length;
+                return true;
+            }
+        } else {
+            // Handle direct marker structure
+            const allQuestions = note.categorizedQuestions.allGenerated[markerKey] || [];
+            const currentDisplayed = note.categorizedQuestions.displayedCount[markerKey] || 0;
+            const remainingQuestions = allQuestions.slice(currentDisplayed);
+            
+            if (remainingQuestions.length > 0) {
+                const batchSize = Math.min(3, remainingQuestions.length);
+                const questionsToShow = remainingQuestions.slice(0, batchSize);
+                const currentQuestions = note.categorizedQuestions[markerKey] || [];
+                note.categorizedQuestions[markerKey] = [...currentQuestions, ...questionsToShow];
+                note.categorizedQuestions.displayedCount[markerKey] = currentDisplayed + questionsToShow.length;
+                return true;
+            }
+        }
+        return false;
+    };
+    
+    let usedExisting = false;
+    
+    if (markers) {
+        const markerKey = markerKeyMap[markers];
+        if (markerKey) {
+            usedExisting = showFromExisting(markerKey);
+        }
+    } else {
+        // Initial load - check for theory/practical structure first
+        if (note.categorizedQuestions.allGenerated?.theory || note.categorizedQuestions.allGenerated?.practical) {
+            ['theory', 'practical'].forEach(type => {
+                Object.values(markerKeyMap).forEach(key => {
+                    if (showFromExisting(key, type)) usedExisting = true;
+                });
+            });
+        } else {
+            // Fallback to direct marker structure
+            Object.values(markerKeyMap).forEach(key => {
+                if (showFromExisting(key)) usedExisting = true;
+            });
+        }
+    }
+    
+    // Only generate new questions if we didn't use existing ones
+    if (!usedExisting) {
+        emitProgress('Generating practice questions...', 40);
+        
+        const existingQuestions = [];
+        if (note.categorizedQuestions.allGenerated) {
+            Object.values(note.categorizedQuestions.allGenerated).forEach(categoryQuestions => {
+                if (Array.isArray(categoryQuestions)) {
+                    existingQuestions.push(...categoryQuestions.map(q => q.question));
+                }
+            });
+        }
+        
+        let questions;
+        try {
+            questions = await generateMarkBasedQuestions(note.textContent, markers, existingQuestions);
+            console.log('Generated questions structure:', JSON.stringify(questions, null, 2));
+        } catch (error) {
+            console.error('Question generation failed:', error);
+            throw new Error('Failed to generate questions: ' + error.message);
+        }
+    
+        if (markers) {
+            const markerKey = markerKeyMap[markers];
+            if (markerKey) {
+                // Handle theory/practical structure
+                if (questions.theory || questions.practical) {
+                    ['theory', 'practical'].forEach(type => {
+                        if (questions[type] && questions[type][markerKey]) {
+                            if (!note.categorizedQuestions[type]) note.categorizedQuestions[type] = {};
+                            if (!note.categorizedQuestions.allGenerated[type]) note.categorizedQuestions.allGenerated[type] = {};
+                            if (!note.categorizedQuestions.displayedCount[type]) note.categorizedQuestions.displayedCount[type] = {};
+                            
+                            const allExisting = note.categorizedQuestions.allGenerated[type][markerKey] || [];
+                            note.categorizedQuestions.allGenerated[type][markerKey] = [...allExisting, ...questions[type][markerKey]];
+                            const questionsToShow = questions[type][markerKey].slice(0, 3);
+                            note.categorizedQuestions[type][markerKey] = [...(note.categorizedQuestions[type][markerKey] || []), ...questionsToShow];
+                            note.categorizedQuestions.displayedCount[type][markerKey] = (note.categorizedQuestions.displayedCount[type][markerKey] || 0) + questionsToShow.length;
+                        }
+                    });
+                } else if (Array.isArray(questions)) {
+                    // Handle direct array
+                    const allExisting = note.categorizedQuestions.allGenerated[markerKey] || [];
+                    note.categorizedQuestions.allGenerated[markerKey] = [...allExisting, ...questions];
+                    const questionsToShow = questions.slice(0, 3);
+                    note.categorizedQuestions[markerKey] = [...(note.categorizedQuestions[markerKey] || []), ...questionsToShow];
+                    note.categorizedQuestions.displayedCount[markerKey] = (note.categorizedQuestions.displayedCount[markerKey] || 0) + questionsToShow.length;
+                } else if (questions[markerKey]) {
+                    // Handle direct marker structure
+                    const allExisting = note.categorizedQuestions.allGenerated[markerKey] || [];
+                    note.categorizedQuestions.allGenerated[markerKey] = [...allExisting, ...questions[markerKey]];
+                    const questionsToShow = questions[markerKey].slice(0, 3);
+                    note.categorizedQuestions[markerKey] = [...(note.categorizedQuestions[markerKey] || []), ...questionsToShow];
+                    note.categorizedQuestions.displayedCount[markerKey] = (note.categorizedQuestions.displayedCount[markerKey] || 0) + questionsToShow.length;
+                }
+            }
+        } else {
+            // Initial generation - process all categories
+            if (questions && typeof questions === 'object') {
+                // Handle theory/practical structure
+                if (questions.theory || questions.practical) {
+                    ['theory', 'practical'].forEach(type => {
+                        if (questions[type]) {
+                            if (!note.categorizedQuestions[type]) {
+                                note.categorizedQuestions[type] = {};
+                            }
+                            if (!note.categorizedQuestions.allGenerated[type]) {
+                                note.categorizedQuestions.allGenerated[type] = {};
+                            }
+                            if (!note.categorizedQuestions.displayedCount[type]) {
+                                note.categorizedQuestions.displayedCount[type] = {};
+                            }
+                            
+                            Object.keys(markerKeyMap).forEach(key => {
+                                const markerKey = markerKeyMap[key];
+                                if (questions[type][markerKey]) {
+                                    const allExisting = note.categorizedQuestions.allGenerated[type][markerKey] || [];
+                                    note.categorizedQuestions.allGenerated[type][markerKey] = [...allExisting, ...questions[type][markerKey]];
+                                    const questionsToShow = questions[type][markerKey].slice(0, 3);
+                                    note.categorizedQuestions[type][markerKey] = questionsToShow;
+                                    note.categorizedQuestions.displayedCount[type][markerKey] = questionsToShow.length;
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    // Handle direct marker structure
+                    Object.keys(markerKeyMap).forEach(key => {
+                        const markerKey = markerKeyMap[key];
+                        if (questions[markerKey]) {
+                            const allExisting = note.categorizedQuestions.allGenerated[markerKey] || [];
+                            note.categorizedQuestions.allGenerated[markerKey] = [...allExisting, ...questions[markerKey]];
+                            const questionsToShow = questions[markerKey].slice(0, 3);
+                            note.categorizedQuestions[markerKey] = questionsToShow;
+                            note.categorizedQuestions.displayedCount[markerKey] = questionsToShow.length;
+                        }
+                    });
+                }
+            }
+        }
+        
+        // Only count credit for AI generation, not loading from DB
+        await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+    }
+    
+    note.markModified('categorizedQuestions');
+    await note.save();
+    
+    // Credit already counted in AI generation block if new content was generated
+    
+    emitProgress('Practice questions ready!', 100);
+    res.json({ 
+        practiceQuestions: note.categorizedQuestions,
+        categorizedQuestions: note.categorizedQuestions 
+    });
 });
 
 const createMoreCategorizedQuestions = asyncHandler(async (req, res) => {
-  const { category } = req.body;
-  const note = await Note.findById(req.params.noteId);
-  
-  if (!note || note.user.toString() !== req.user._id.toString()) {
-    res.status(404); throw new Error('Note not found');
-  }
-  if (!category || !note.categorizedQuestions[category]) {
-    res.status(400); throw new Error('Invalid category specified.');
-  }
-  const existingQuestions = note.categorizedQuestions[category];
-  const newQuestions = await generateMarkBasedQuestions(note.textContent, category, existingQuestions);
-  const sanitizedNewQuestions = newQuestions.map(q => ({
-    ...q,
-    answer: parseAndSanitize(q.answer)
-  }));
-  note.categorizedQuestions[category].push(...sanitizedNewQuestions);
-  await note.save();
-  
-  // Update user credits
-  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
-  
-  res.status(201).json(note.categorizedQuestions);
+    // This endpoint now uses the same logic as createCategorizedQuestions
+    // Just call the main function with the markers parameter
+    return createCategorizedQuestions(req, res);
 });
 
 const suggestTitle = asyncHandler(async (req, res) => {
-  const file = req.file;
-  if (!file) {
-    res.status(400);
-    throw new Error('No file provided for title suggestion.');
-  }
-  try {
-    const textContent = await extractTextFromFile(file);
-    const title = await generateTitle(textContent);
-    res.json({ title });
-  } catch (error) {
-    res.status(500);
-    throw new Error('Failed to suggest a title.');
-  }
+    res.status(501).json({ message: 'Title suggestion not implemented yet' });
 });
 
 const createMindMap = asyncHandler(async (req, res) => {
-  const note = await Note.findById(req.params.noteId);
-  if (!note || note.user.toString() !== req.user._id.toString()) {
-    res.status(404);
-    throw new Error('Note not found');
-  }
-
-  const mindMapData = await generateMindMap(note.textContent);
-
-  note.mindMap = mindMapData;
-  await note.save();
-  
-  // Update user credits
-  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
-
-  res.status(201).json(note.mindMap);
+    const note = await Note.findById(req.params.noteId);
+    if (!note || note.user.toString() !== req.user._id.toString()) {
+        res.status(404);
+        throw new Error('Note not found or user not authorized');
+    }
+    
+    const emitProgress = (message, progress) => {
+        if (req.io && req.userSocketMap[req.user._id]) {
+            req.io.to(req.userSocketMap[req.user._id]).emit('ai-progress', { message, progress });
+        }
+    };
+    
+    emitProgress('Creating mind map...', 40);
+    const mindMapData = await generateMindMap(note.textContent);
+    emitProgress('Formatting mind map...', 80);
+    note.mindMap = mindMapData;
+    await note.save();
+    
+    await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+    
+    emitProgress('Mind map ready!', 100);
+    res.json({ mindMap: note.mindMap });
 });
 
 const createStudyPlan = asyncHandler(async (req, res) => {
-  const { subjectId } = req.params;
-  const subject = await Subject.findById(subjectId);
-  const notes = await Note.find({ subject: subjectId });
-
-  if (!subject || subject.user.toString() !== req.user._id.toString()) {
-    res.status(404);
-    throw new Error('Subject not found');
-  }
-
-  if (notes.length < 2) {
-    res.status(400);
-    throw new Error('At least 2 notes required to generate a study plan');
-  }
-
-  const allContent = notes.map(note => `Title: ${note.title}\n${note.textContent}`).join('\n\n');
-  
-  const prompt = `Analyze the following study materials for the subject "${subject.name}" and create a comprehensive 4-week study plan.
-
-Content:
-${allContent}
-
-Create a structured study plan with:
-- Week-by-week breakdown
-- Key topics to focus on each week
-- Recommended study activities
-- Logical progression from basics to advanced
-
-Return as JSON with this structure:
-{
-  "weeks": [
-    {
-      "week": 1,
-      "title": "Week title",
-      "description": "What to focus on this week",
-      "topics": ["topic1", "topic2"],
-      "activities": ["activity1", "activity2"]
-    }
-  ]
-}`;
-
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-  const result = await model.generateContent(prompt);
-  const rawResponse = result.response.text();
-  
-  // Clean the response to extract JSON
-  const startIndex = rawResponse.indexOf('{');
-  const endIndex = rawResponse.lastIndexOf('}');
-  const jsonString = rawResponse.substring(startIndex, endIndex + 1);
-  
-  subject.studyPlan = JSON.parse(jsonString);
-  await subject.save();
-  
-  // Update user credits
-  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
-
-  res.json({ studyPlan: subject.studyPlan });
+    res.status(501).json({ message: 'Study plan creation not implemented yet' });
 });
 
 const compareConcepts = asyncHandler(async (req, res) => {
-  const { noteIds } = req.body;
-  
-  if (!noteIds || noteIds.length !== 2) {
-    res.status(400);
-    throw new Error('Exactly 2 note IDs required for comparison');
-  }
-
-  const notes = await Note.find({ 
-    _id: { $in: noteIds }, 
-    user: req.user._id 
-  });
-
-  if (notes.length !== 2) {
-    res.status(404);
-    throw new Error('Notes not found or not authorized');
-  }
-
-  const [note1, note2] = notes;
-  
-  const prompt = `Compare and contrast the concepts from these two study materials:
-
-Material 1: "${note1.title}"
-${note1.textContent}
-
-Material 2: "${note2.title}"
-${note2.textContent}
-
-Create a detailed comparison table showing key differences and similarities. Return as JSON with this structure:
-{
-  "title": "Comparison title",
-  "concept1": "Name of first concept",
-  "concept2": "Name of second concept",
-  "comparisons": [
-    {
-      "aspect": "Comparison aspect",
-      "value1": "Value for concept 1",
-      "value2": "Value for concept 2"
-    }
-  ]
-}`;
-
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-  const result = await model.generateContent(prompt);
-  const rawResponse = result.response.text();
-  
-  // Clean the response to extract JSON
-  const startIndex = rawResponse.indexOf('{');
-  const endIndex = rawResponse.lastIndexOf('}');
-  const jsonString = rawResponse.substring(startIndex, endIndex + 1);
-  
-  const comparison = JSON.parse(jsonString);
-  
-  // Update user credits
-  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
-
-  res.json({ comparison });
+    res.status(501).json({ message: 'Concept comparison not implemented yet' });
 });
 
 const generateExamPaper = asyncHandler(async (req, res) => {
-  const { subjectId } = req.params;
-  const { totalMarks, duration, distribution, bloomsTaxonomy } = req.body;
-  
-  const subject = await Subject.findById(subjectId);
-  const notes = await Note.find({ subject: subjectId });
-
-  if (!subject || subject.user.toString() !== req.user._id.toString()) {
-    res.status(404);
-    throw new Error('Subject not found');
-  }
-
-  if (!subject.questionBank || subject.questionBank.length === 0) {
-    res.status(400);
-    throw new Error('Generate question bank first to create exam papers');
-  }
-
-  const allContent = notes.map(note => note.textContent).join('\n\n');
-  
-  const prompt = `Create a comprehensive exam paper for "${subject.name}" with the following specifications:
-
-TOTAL MARKS: ${totalMarks}
-DURATION: ${duration} hours
-
-QUESTION DISTRIBUTION:
-- ${distribution.mcq1} MCQ questions (1 mark each)
-- ${distribution.mark3} questions (3 marks each)
-- ${distribution.mark4} questions (4 marks each) 
-- ${distribution.mark5} questions (5 marks each)
-
-BLOOM'S TAXONOMY DISTRIBUTION:
-- Remember: ${bloomsTaxonomy.remember}%
-- Understand: ${bloomsTaxonomy.understand}%
-- Apply: ${bloomsTaxonomy.apply}%
-- Analyze: ${bloomsTaxonomy.analyze}%
-- Evaluate: ${bloomsTaxonomy.evaluate}%
-- Create: ${bloomsTaxonomy.create}%
-
-CONTENT TO BASE QUESTIONS ON:
-${allContent}
-
-Generate a complete exam paper with this EXACT format:
-
-<div class="header">
-<h1>UNIVERSITY EXAMINATION</h1>
-<h2>Subject: ${subject.name}</h2>
-<p><strong>Time: ${duration} Hours</strong> &nbsp;&nbsp;&nbsp;&nbsp; <strong>Maximum Marks: ${totalMarks}</strong></p>
-</div>
-
-<div class="instructions">
-<h3>INSTRUCTIONS:</h3>
-<ul>
-<li>Answer all questions</li>
-<li>All questions are compulsory</li>
-<li>Figures to the right indicate full marks</li>
-<li>Use of calculator is allowed</li>
-</ul>
-</div>
-
-<div class="section">
-<h2>SECTION A - Multiple Choice Questions (${distribution.mcq1} × 1 = ${distribution.mcq1} Marks)</h2>
-[Generate ${distribution.mcq1} MCQ questions with 4 options each, mark correct answer with *]
-</div>
-
-<div class="section">
-<h2>SECTION B - Short Answer Questions (${distribution.mark3} × 3 = ${distribution.mark3 * 3} Marks)</h2>
-[Generate ${distribution.mark3} questions worth 3 marks each]
-</div>
-
-<div class="section">
-<h2>SECTION C - Medium Answer Questions (${distribution.mark4} × 4 = ${distribution.mark4 * 4} Marks)</h2>
-[Generate ${distribution.mark4} questions worth 4 marks each]
-</div>
-
-<div class="section">
-<h2>SECTION D - Long Answer Questions (${distribution.mark5} × 5 = ${distribution.mark5 * 5} Marks)</h2>
-[Generate ${distribution.mark5} questions worth 5 marks each]
-</div>
-
-Ensure questions follow Bloom's taxonomy distribution and are based on the provided content.`;
-
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-  const result = await model.generateContent(prompt);
-  const examPaper = result.response.text();
-  
-  // Update user credits
-  await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
-
-  res.json({ examPaper });
+    res.status(501).json({ message: 'Exam paper generation not implemented yet' });
 });
 
-
 export { 
-  createSummary, 
-  createFlashcards, 
-  createQuiz, 
-  createCategorizedQuestions, 
-  createMoreCategorizedQuestions,
-  suggestTitle,
-  createMindMap,
-  createStudyPlan,
-  compareConcepts,
-  generateExamPaper
+    createSummary, 
+    createFlashcards, 
+    createQuiz, 
+    createCategorizedQuestions,
+    createMoreCategorizedQuestions,
+    suggestTitle,
+    createMindMap,
+    createStudyPlan,
+    compareConcepts,
+    generateExamPaper
 };

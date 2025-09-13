@@ -13,7 +13,7 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
         <FiMenu className="w-6 h-6" />
       </button>
       <span className="text-xl font-bold text-indigo-600">ExamBuddy</span>
-      <ThemeToggleButton />
+      <div></div>
     </header>
   );
 };

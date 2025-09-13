@@ -47,4 +47,81 @@ body {
     padding: 2px 4px;
   }
 }
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* 3D Flip Animation Classes */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-style-preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
 /* ----------------------------- */
+
+/* Summary Theme Styles */
+.summary-h1 { color: #0f172a !important; border-bottom: 3px solid #0f172a !important; }
+.summary-h2 { color: #1e293b !important; border-bottom: 2px solid #cbd5e1 !important; }
+.summary-h3 { color: #334155 !important; }
+.summary-h4 { color: #475569 !important; }
+.summary-h5 { color: #64748b !important; }
+.summary-p { color: #374151 !important; }
+.summary-th { background: #f8fafc !important; border: 1px solid #e2e8f0 !important; color: #1e293b !important; }
+.summary-td { border: 1px solid #e2e8f0 !important; color: #374151 !important; }
+.summary-ul, .summary-ol, .summary-li { color: #374151 !important; }
+.summary-blockquote { border-left: 6px solid #0f172a !important; background: #f8fafc !important; color: #1e293b !important; }
+.summary-div { background: #f1f5f9 !important; border: 2px solid #cbd5e1 !important; color: #334155 !important; }
+
+.dark .summary-h1 { color: #60a5fa !important; border-bottom-color: #60a5fa !important; }
+.dark .summary-h2 { color: #3b82f6 !important; border-bottom-color: #475569 !important; }
+.dark .summary-h3 { color: #2563eb !important; }
+.dark .summary-h4 { color: #1d4ed8 !important; }
+.dark .summary-h5 { color: #1e40af !important; }
+.dark .summary-p { color: #ffffff !important; }
+.dark .summary-th { background: #334155 !important; border-color: #475569 !important; color: #f1f5f9 !important; }
+.dark .summary-td { border-color: #475569 !important; color: #cbd5e1 !important; }
+.dark .summary-ul, .dark .summary-ol, .dark .summary-li { color: #ffffff !important; }
+.dark .summary-blockquote { border-left-color: #f1f5f9 !important; background: #334155 !important; color: #f1f5f9 !important; }
+.dark .summary-div { background: #334155 !important; border-color: #475569 !important; color: #e2e8f0 !important; }
+
+/* Summary content wrapper styles */
+.summary-content h1 { color: #0f172a !important; border-bottom: 3px solid #0f172a !important; }
+.summary-content h2 { color: #1e293b !important; border-bottom: 2px solid #cbd5e1 !important; }
+.summary-content h3 { color: #334155 !important; }
+.summary-content h4 { color: #475569 !important; }
+.summary-content h5 { color: #64748b !important; }
+.summary-content p { color: #374151 !important; }
+.summary-content th { background: #f8fafc !important; border: 1px solid #e2e8f0 !important; color: #1e293b !important; }
+.summary-content td { border: 1px solid #e2e8f0 !important; color: #374151 !important; }
+.summary-content ul, .summary-content ol, .summary-content li { color: #374151 !important; }
+.summary-content blockquote { border-left: 6px solid #0f172a !important; background: #f8fafc !important; color: #1e293b !important; }
+.summary-content div { background: #f1f5f9 !important; border: 2px solid #cbd5e1 !important; color: #334155 !important; }
+
+.dark .summary-content h1 { color: #60a5fa !important; border-bottom-color: #60a5fa !important; }
+.dark .summary-content h2 { color: #3b82f6 !important; border-bottom-color: #475569 !important; }
+.dark .summary-content h3 { color: #2563eb !important; }
+.dark .summary-content h4 { color: #1d4ed8 !important; }
+.dark .summary-content h5 { color: #1e40af !important; }
+.dark .summary-content p { color: #ffffff !important; }
+.dark .summary-content th { background: #334155 !important; border-color: #475569 !important; color: #f1f5f9 !important; }
+.dark .summary-content td { border-color: #475569 !important; color: #ffffff !important; }
+.dark .summary-content ul, .dark .summary-content ol, .dark .summary-content li { color: #ffffff !important; }
+.dark .summary-content blockquote { border-left-color: #60a5fa !important; background: #334155 !important; color: #ffffff !important; }
+.dark .summary-content div { background: #334155 !important; border-color: #475569 !important; color: #ffffff !important; }

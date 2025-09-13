@@ -20,14 +20,35 @@ export const extractTextFromFile = async (file) => {
     else if (file.mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
       const data = await pptx2json.parse(file.buffer);
       let fullText = '';
+      
       if (data.slides && Array.isArray(data.slides)) {
-        for (const slide of data.slides) {
+        data.slides.forEach((slide, index) => {
+          fullText += `\n--- Slide ${index + 1} ---\n`;
+          
+          // Extract text content
           if (slide.text) {
-            fullText += slide.text + '\n\n';
+            fullText += slide.text + '\n';
           }
-        }
+          
+          // Extract shapes and text boxes
+          if (slide.shapes && Array.isArray(slide.shapes)) {
+            slide.shapes.forEach(shape => {
+              if (shape.text) {
+                fullText += shape.text + '\n';
+              }
+            });
+          }
+          
+          // Extract notes if available
+          if (slide.notes) {
+            fullText += `Notes: ${slide.notes}\n`;
+          }
+          
+          fullText += '\n';
+        });
       }
-      return fullText || 'PowerPoint uploaded successfully but no text content found.';
+      
+      return fullText.trim() || 'PowerPoint uploaded successfully but no text content found.';
     } 
     else if (file.mimetype === 'text/plain') {
       return file.buffer.toString('utf8');

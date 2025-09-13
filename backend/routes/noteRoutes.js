@@ -7,7 +7,10 @@ import {
   getNoteById, 
   deleteNote, 
   updateNote,
-  deleteMultipleNotes
+  deleteMultipleNotes,
+  resetFlashcards,
+  resetPracticeQuestions,
+  resetQuizzes
 } from '../controllers/noteController.js';
 
 const router = express.Router();
@@ -27,5 +30,14 @@ router.route('/:id')
     .get(protect, getNoteById)
     .put(protect, updateNote) // Handles updating a single note
     .delete(protect, deleteNote); // Handles deleting a single note
+
+router.route('/:id/reset-flashcards')
+    .post(protect, resetFlashcards); // Handles resetting flashcards
+
+router.route('/:id/reset-practice-questions')
+    .post(protect, resetPracticeQuestions); // Handles resetting practice questions
+
+router.route('/:noteId/reset-quizzes')
+    .post(protect, resetQuizzes); // Handles resetting quizzes
 
 export default router;
