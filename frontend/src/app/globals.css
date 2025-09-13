@@ -47,24 +47,12 @@ body {
     padding: 2px 4px;
   }
   
-  /* Mobile dark theme text fixes */
-  .dark * {
-    color: #ffffff !important;
-  }
-  
-  .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
-    color: #60a5fa !important;
-  }
-  
-  .dark p, .dark div, .dark span, .dark li {
-    color: #ffffff !important;
-  }
-  
-  /* Specific mobile summary content */
-  .dark .summary-content *,
-  .dark .prose *,
-  .dark [class*="prose"] * {
-    color: #ffffff !important;
+  /* Mobile summary content - same as practice questions */
+  .dark .prose.dark\:prose-invert.prose-sm.summary-content p,
+  .dark .prose.dark\:prose-invert.prose-sm.summary-content div,
+  .dark .prose.dark\:prose-invert.prose-sm.summary-content span,
+  .dark .prose.dark\:prose-invert.prose-sm.summary-content li {
+    color: #f3f4f6 !important;
   }
 }
 

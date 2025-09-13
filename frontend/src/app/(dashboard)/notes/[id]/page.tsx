@@ -609,12 +609,7 @@ export default function NoteDetailPage() {
                   </Button>
                 </div>
                 <div 
-                  className="prose dark:prose-invert max-w-none summary-content"
-                  style={{
-                    color: isDarkMode ? '#ffffff' : '#374151',
-                    '--tw-prose-body': isDarkMode ? '#ffffff' : '#374151',
-                    '--tw-prose-headings': isDarkMode ? '#60a5fa' : '#1f2937'
-                  }}
+                  className="prose dark:prose-invert prose-sm max-w-none summary-content"
                   dangerouslySetInnerHTML={{ __html: sanitizeHTML(note.summary) }} 
                 />
               </>
