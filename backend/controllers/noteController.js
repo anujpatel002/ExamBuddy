@@ -155,7 +155,7 @@ const uploadNote = asyncHandler(async (req, res) => {
 });
 
 const getMyNotes = asyncHandler(async (req, res) => {
-    const notes = await Note.find({ user: req.user._id }).sort({ createdAt: -1 });
+    const notes = await Note.find({ user: req.user._id }).sort({ title: 1 });
     res.json(notes);
 });
 

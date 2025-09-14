@@ -21,9 +21,19 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showPdfConverter, setShowPdfConverter] = useState(false);
+  const [useFileName, setUseFileName] = useState(true);
   const { limits } = usePlanLimits();
   
   const canUpload = limits.notesPerSubject === -1 || currentNoteCount < limits.notesPerSubject;
+
+  const handleFileChange = (selectedFile: File | null) => {
+    setFile(selectedFile);
+    setShowPdfConverter(false);
+    if (selectedFile && useFileName) {
+      const fileName = selectedFile.name.replace(/\.[^/.]+$/, "");
+      setTitle(fileName);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +84,26 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-medium mb-2">Note Title</label>
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              type="checkbox"
+              id="useFileName"
+              checked={useFileName}
+              onChange={(e) => {
+                setUseFileName(e.target.checked);
+                if (e.target.checked && file) {
+                  const fileName = file.name.replace(/\.[^/.]+$/, "");
+                  setTitle(fileName);
+                } else {
+                  setTitle('');
+                }
+              }}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+            <label htmlFor="useFileName" className="text-sm text-gray-600 dark:text-gray-400">
+              Use file name as title
+            </label>
+          </div>
           <input
             type="text"
             value={title}
@@ -113,10 +143,7 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
           )}
           <input
             type="file"
-            onChange={(e) => {
-              setFile(e.target.files?.[0] || null);
-              setShowPdfConverter(false);
-            }}
+            onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
             accept=".pdf,.doc,.docx,.txt,.html"
             required

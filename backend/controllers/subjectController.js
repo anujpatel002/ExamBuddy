@@ -37,7 +37,7 @@ const createSubject = asyncHandler(async (req, res) => {
 // @route   GET /api/subjects
 // @access  Private
 const getMySubjects = asyncHandler(async (req, res) => {
-  const subjects = await Subject.find({ user: req.user._id });
+  const subjects = await Subject.find({ user: req.user._id }).sort({ name: 1 });
   res.json(subjects);
 });
 
@@ -47,7 +47,7 @@ const getMySubjects = asyncHandler(async (req, res) => {
 const getSubjectById = asyncHandler(async (req, res) => {
   const subject = await Subject.findById(req.params.id);
   if (subject && subject.user.toString() === req.user._id.toString()) {
-    const notes = await Note.find({ subject: req.params.id });
+    const notes = await Note.find({ subject: req.params.id }).sort({ title: 1 });
     res.json({ subject, notes });
   } else {
     res.status(404);
