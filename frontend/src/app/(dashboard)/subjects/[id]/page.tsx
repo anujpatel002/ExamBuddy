@@ -26,18 +26,18 @@ const QBankQuestionCard = ({ question, index }: { question: any; index: number }
   
   return (
     <div className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-all duration-300 ${showAnswer ? 'shadow-lg' : ''}`}>
-      <div className="bg-gray-50 dark:bg-gray-800/50 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                Question {index + 1}
+      <div className="bg-gray-50 dark:bg-gray-800/50 p-3 sm:p-4">
+        <div className="flex items-start justify-between gap-2 sm:gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 whitespace-nowrap">
+                Q{index + 1}
               </span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
-                {question.marks} Mark{question.marks > 1 ? 's' : ''}
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 whitespace-nowrap">
+                {question.marks}M
               </span>
               {question.source && (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
                   question.type === 'combination' 
                     ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300'
                     : 'bg-gray-100 text-gray-800 dark:bg-gray-900/50 dark:text-gray-300'
@@ -46,17 +46,18 @@ const QBankQuestionCard = ({ question, index }: { question: any; index: number }
                 </span>
               )}
             </div>
-            <h4 className="font-medium text-gray-900 dark:text-gray-100 leading-relaxed mb-3">{question.question}</h4>
+            <h4 className="font-medium text-gray-900 dark:text-gray-100 leading-relaxed mb-3 break-words overflow-wrap-anywhere word-break-break-word hyphens-auto">{question.question}</h4>
             
             {showAnswer && (
-              <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-700">
+              <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-700">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
                   <span className="text-sm font-semibold text-green-700 dark:text-green-300">ANSWER</span>
                 </div>
-                <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                <div className="max-h-96 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
                   <div 
-                    className="prose dark:prose-invert prose-sm max-w-none text-sm leading-7 space-y-2 break-words"
+                    className="prose dark:prose-invert prose-sm max-w-none text-sm leading-6 sm:leading-7 space-y-2 break-words overflow-wrap-anywhere word-break-break-word hyphens-auto"
+                    style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                     dangerouslySetInnerHTML={{ 
                       __html: sanitizeHTML(question.answer)
                         .replace(/\n\n/g, '</p><p class="mt-3">')
@@ -72,13 +73,13 @@ const QBankQuestionCard = ({ question, index }: { question: any; index: number }
             <div className="mt-4">
               <button
                 onClick={() => setShowAnswer(!showAnswer)}
-                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
+                className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 w-full sm:w-auto ${
                   showAnswer 
                     ? 'bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/50 dark:hover:bg-green-900/70 dark:text-green-300'
                     : 'bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/50 dark:hover:bg-blue-900/70 dark:text-blue-300'
                 }`}
               >
-                {showAnswer ? '👁️ Hide Answer' : '👀 Show Answer'}
+                {showAnswer ? '👁️ Hide' : '👀 Show'}
               </button>
             </div>
           </div>
@@ -341,14 +342,14 @@ export default function SubjectDetailPage() {
           ) ? (
             <div>
               {/* Header */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-3 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex flex-col gap-4">
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">AI-Curated Question Bank</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Comprehensive questions from all uploaded notes with unit combinations</p>
+                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">AI-Curated Question Bank</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Comprehensive questions from all uploaded notes</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="bg-white dark:bg-gray-800 px-3 py-1 rounded-full border text-sm text-gray-500 dark:text-gray-400">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <span className="bg-white dark:bg-gray-800 px-3 py-1 rounded-full border text-sm text-gray-500 dark:text-gray-400 w-fit">
                       {subject.questionBank ? (
                         (subject.questionBank.theory || subject.questionBank.practical) ? 
                           Object.values(subject.questionBank.theory || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0) +
@@ -356,7 +357,7 @@ export default function SubjectDetailPage() {
                         : Object.values(subject.questionBank).reduce((total: number, arr: any) => total + (arr?.length || 0), 0)
                       ) : 0} Questions
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button 
                         onClick={async () => {
                           setIsGeneratingMore(true);
@@ -396,8 +397,9 @@ export default function SubjectDetailPage() {
                         variant="secondary"
                         size="sm"
                         isLoading={isGeneratingMore}
+                        className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
                       >
-                        {isGeneratingMore ? `Loading...` : `+ More ${activeQBankTab.replace('Marker', ' Marker')}`}
+                        {isGeneratingMore ? `Loading...` : `+ More`}
                       </Button>
                       <Button 
                         onClick={async () => {
@@ -436,10 +438,10 @@ export default function SubjectDetailPage() {
                         }}
                         variant="secondary"
                         size="sm"
-                        className="text-orange-600 hover:bg-orange-100 dark:text-orange-400 dark:hover:bg-orange-900/50"
+                        className="text-orange-600 hover:bg-orange-100 dark:text-orange-400 dark:hover:bg-orange-900/50 text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
                         isLoading={isResetting}
                       >
-                        {isResetting ? 'Resetting...' : '🔄 Reset'}
+                        {isResetting ? 'Resetting...' : '🔄'}
                       </Button>
                       <Button 
                         onClick={async () => {
@@ -461,8 +463,9 @@ export default function SubjectDetailPage() {
                         variant="secondary"
                         size="sm"
                         isLoading={isSubmitting}
+                        className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
                       >
-                        {isSubmitting ? `${qbankProgress.message} (${qbankProgress.progress}%)` : '🔄 Regenerate All'}
+                        {isSubmitting ? `${qbankProgress.message.split(' ')[0]}...` : '🔄 All'}
                       </Button>
                     </div>
                   </div>
@@ -544,8 +547,8 @@ export default function SubjectDetailPage() {
               </div>
 
               {/* Questions Content */}
-              <div className="p-4 sm:p-6">
-                <div className="space-y-4">
+              <div className="p-3 sm:p-6">
+                <div className="space-y-3 sm:space-y-4">
                   {(() => {
                     const currentBank = (subject.questionBank.theory || subject.questionBank.practical) ? subject.questionBank[activeQBankType] : subject.questionBank;
                     return currentBank?.[activeQBankTab]?.map((q: any, index: number) => (

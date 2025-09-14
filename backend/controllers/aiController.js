@@ -136,10 +136,12 @@ const createFlashcards = asyncHandler(async (req, res) => {
             const isUniqueQuestion = (newQuestion, existingCards) => {
                 const normalizeQuestion = (q) => q.toLowerCase().replace(/[^\w\s]/g, '').trim();
                 const newQ = normalizeQuestion(newQuestion);
-                return !existingCards.some(card => {
+                const isUnique = !existingCards.some(card => {
                     const existingQ = normalizeQuestion(card.question);
-                    return existingQ === newQ || newQ.includes(existingQ) || existingQ.includes(newQ);
+                    return existingQ === newQ;
                 });
+                console.log(`Question uniqueness check: "${newQuestion.substring(0, 50)}..." - Unique: ${isUnique}`);
+                return isUnique;
             };
             
             if (type === 'theory' && newFlashcards?.theory) {
@@ -183,14 +185,14 @@ const createFlashcards = asyncHandler(async (req, res) => {
                     if (uniqueTheory.length > 0) {
                         note.flashcards.allGenerated.theory = [...allExistingTheory, ...uniqueTheory];
                         const theoryToShow = uniqueTheory.slice(0, 5);
-                        note.flashcards.theory = theoryToShow;
-                        note.flashcards.displayedCount.theory = theoryToShow.length;
+                        note.flashcards.theory = [...(note.flashcards.theory || []), ...theoryToShow];
+                        note.flashcards.displayedCount.theory = (note.flashcards.displayedCount.theory || 0) + theoryToShow.length;
                     }
                     if (uniquePractical.length > 0) {
                         note.flashcards.allGenerated.practical = [...allExistingPractical, ...uniquePractical];
                         const practicalToShow = uniquePractical.slice(0, 5);
-                        note.flashcards.practical = practicalToShow;
-                        note.flashcards.displayedCount.practical = practicalToShow.length;
+                        note.flashcards.practical = [...(note.flashcards.practical || []), ...practicalToShow];
+                        note.flashcards.displayedCount.practical = (note.flashcards.displayedCount.practical || 0) + practicalToShow.length;
                     }
                     console.log('Code content generation - Theory:', uniqueTheory.length, 'Practical:', uniquePractical.length);
                 } else if (Array.isArray(newFlashcards.theory)) {
@@ -203,8 +205,8 @@ const createFlashcards = asyncHandler(async (req, res) => {
                     if (uniqueTheory.length > 0) {
                         note.flashcards.allGenerated.theory = [...allExistingTheory, ...uniqueTheory];
                         const theoryToShow = uniqueTheory.slice(0, 5);
-                        note.flashcards.theory = theoryToShow;
-                        note.flashcards.displayedCount.theory = theoryToShow.length;
+                        note.flashcards.theory = [...(note.flashcards.theory || []), ...theoryToShow];
+                        note.flashcards.displayedCount.theory = (note.flashcards.displayedCount.theory || 0) + theoryToShow.length;
                         console.log(`Non-code content: Added ${uniqueTheory.length} flashcards, showing ${theoryToShow.length}`);
                     }
                 }
@@ -235,6 +237,8 @@ const createFlashcards = asyncHandler(async (req, res) => {
     // Credit already counted in AI generation block if new content was generated
     
     emitProgress('Flashcards ready!', 100);
+    console.log('=== RESPONSE TO FRONTEND ===');
+    console.log('Sending flashcards:', JSON.stringify(savedNote.flashcards, null, 2));
     res.json({ flashcards: savedNote.flashcards });
 });
 

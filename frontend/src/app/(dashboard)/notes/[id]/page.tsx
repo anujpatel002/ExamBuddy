@@ -88,7 +88,7 @@ const PracticeQuestionCard = ({ question, index, activePracticeTab, questionCate
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <span className="text-sm font-semibold text-green-700 dark:text-green-300">ANSWER</span>
                 </div>
-                <div className="prose dark:prose-invert prose-sm max-w-none text-sm leading-7">
+                <div className="prose dark:prose-invert prose-sm max-w-none text-sm leading-7 overflow-y-auto max-h-96 overflow-x-hidden">
                   {(() => {
                     const answer = question.answer;
                     // Check if answer contains code blocks or HTML code
@@ -115,21 +115,21 @@ const PracticeQuestionCard = ({ question, index, activePracticeTab, questionCate
                           const code = part.slice(3, -3).trim();
                           return (
                             <pre key={index} className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto my-3 border border-gray-700">
-                              <code className="font-mono text-sm whitespace-pre">{code}</code>
+                              <code className="font-mono text-sm whitespace-pre break-words">{code}</code>
                             </pre>
                           );
                         } else {
                           // Regular text with word wrapping - strip HTML tags
                           const textContent = part.replace(/<[^>]*>/g, '');
                           return (
-                            <div key={index} className="break-words overflow-wrap-anywhere whitespace-pre-wrap">{textContent}</div>
+                            <div key={index} className="break-words overflow-wrap-anywhere whitespace-pre-wrap hyphens-auto word-break-break-all">{textContent}</div>
                           );
                         }
                       });
                     } else {
                       // No code, render normally with word wrapping - strip HTML tags
                       const textContent = answer.replace(/<[^>]*>/g, '');
-                      return <div className="break-words overflow-wrap-anywhere whitespace-pre-wrap">{textContent}</div>;
+                      return <div className="break-words overflow-wrap-anywhere whitespace-pre-wrap hyphens-auto word-break-break-all">{textContent}</div>;
                     }
                   })()
                   }
@@ -308,8 +308,8 @@ export default function NoteDetailPage() {
         
         // Trigger initial check
         setTimeout(() => {
-          const event = new MutationRecord();
-          observer.callback([event as any], observer);
+          observer.disconnect();
+          observer.observe(summaryContainer, { attributes: true, attributeFilter: ['class', 'style'] });
         }, 100);
         
         return () => observer.disconnect();
@@ -519,6 +519,8 @@ export default function NoteDetailPage() {
       
       // Update state directly with response data
       if (response.data) {
+        console.log('=== FRONTEND UPDATE ===');
+        console.log('Response data:', response.data);
         setNote(prevNote => {
           if (!prevNote) return prevNote;
           const updatedNote = { ...prevNote };
@@ -528,6 +530,7 @@ export default function NoteDetailPage() {
           } else if (type === 'flashcards') {
             // Handle flashcards response
             if (response.data.flashcards) {
+              console.log('Updating flashcards:', response.data.flashcards);
               updatedNote.flashcards = response.data.flashcards;
             }
           } else if (type === 'categorized') {
@@ -541,11 +544,14 @@ export default function NoteDetailPage() {
             updatedNote.mindMap = response.data.mindMap;
           }
           
+          console.log('Updated note flashcards:', updatedNote.flashcards);
           return updatedNote;
         });
       }
       
       toast.success(`Content generated successfully!`);
+      // Refetch note data to ensure UI is updated with latest from DB
+      await fetchNoteAndQuizzes();
       await refreshUser(); // Refresh user data to update credits
     } catch (error: any) {
       console.error(`Error generating ${type}:`, error);
@@ -699,18 +705,26 @@ export default function NoteDetailPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
                     {(() => {
                       const allFlashcards = (note.flashcards as any)[activeFlashcardType] || [];
+                      console.log('All flashcards for', activeFlashcardType, ':', allFlashcards.length, allFlashcards);
                       const currentPage = flashcardPages[activeFlashcardType] || 1;
                       const cardsPerPage = 9; // 3x3 grid
                       const startIndex = (currentPage - 1) * cardsPerPage;
                       const endIndex = startIndex + cardsPerPage;
                       const cardsToShow = allFlashcards.slice(startIndex, endIndex);
+                      console.log('Cards to show:', cardsToShow.length, 'from', startIndex, 'to', endIndex);
+                      
+                      console.log('Flashcards to render:', cardsToShow.length, cardsToShow);
                       
                       if (cardsToShow.length === 0) {
                         return <div className="col-span-full text-center py-8 text-gray-500">No {activeFlashcardType} flashcards found</div>;
                       }
                       
                       return cardsToShow.map((fc: any, index: number) => {
-                        if (!fc || !fc.question || !fc.answer) return null;
+                        console.log('Rendering flashcard:', index, fc);
+                        if (!fc || !fc.question || !fc.answer) {
+                          console.log('Invalid flashcard:', fc);
+                          return null;
+                        }
                         return <Flashcard key={`${activeFlashcardType}-${startIndex + index}`} flashcard={fc} />;
                       }).filter(Boolean);
                     })()
@@ -811,13 +825,34 @@ export default function NoteDetailPage() {
                       <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Practice Questions</h3>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Test your understanding with exam-style questions</p>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                      <span className="bg-white dark:bg-gray-800 px-3 py-1 rounded-full border">
+                    <div className="flex items-center gap-3">
+                      <span className="bg-white dark:bg-gray-800 px-3 py-1 rounded-full border text-sm text-gray-500 dark:text-gray-400">
                         {(note.categorizedQuestions as any).theory ? 
                           Object.values((note.categorizedQuestions as any).theory).reduce((total: number, arr: any) => total + (arr?.length || 0), 0) +
                           Object.values((note.categorizedQuestions as any).practical || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0)
                         : Object.values(note.categorizedQuestions).reduce((total: number, arr: any) => total + (Array.isArray(arr) ? arr.length : 0), 0)} Questions
                       </span>
+                      {(() => {
+                        const currentQuestions = (note.categorizedQuestions as any).theory ? 
+                          (note.categorizedQuestions as any)[activePracticeType] :
+                          note.categorizedQuestions;
+                        const allGenerated = (note.categorizedQuestions as any).allGenerated?.[activePracticeTab] || [];
+                        const displayed = currentQuestions?.[activePracticeTab]?.length || 0;
+                        const hasMore = allGenerated.length > displayed;
+                        const markerValue = activePracticeTab.replace('Marker', '').replace('one', '1').replace('three', '3').replace('four', '4').replace('five', '5');
+                        
+                        return (
+                          <Button 
+                            onClick={() => handleGenerate('categorized', { markers: markerValue })}
+                            isLoading={generating === `categorized-${markerValue}`}
+                            variant="secondary"
+                            size="sm"
+                          >
+                            {hasMore ? '+ More' : '+ Generate'} {activePracticeTab.replace('Marker', ' Marker')}
+                          </Button>
+                        );
+                      })()
+                      }
                     </div>
                   </div>
                 </div>
@@ -953,42 +988,7 @@ export default function NoteDetailPage() {
                     );
                   })()}
                   
-                  {/* Generate More Button */}
-                  <div className="mt-8">
-                    <div className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800/50 dark:to-blue-900/20 rounded-lg p-6">
-                      <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Generate More Questions</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Generate additional questions for specific marker categories
-                      </p>
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        {[
-                          { key: 'oneMarker', label: '1 Marker', markers: '1', color: 'from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700' },
-                          { key: 'threeMarker', label: '3 Marker', markers: '3', color: 'from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700' },
-                          { key: 'fourMarker', label: '4 Marker', markers: '4', color: 'from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700' },
-                          { key: 'fiveMarker', label: '5 Marker', markers: '5', color: 'from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700' }
-                        ].map(category => {
-                          const currentQuestions = (note.categorizedQuestions as any).theory ? 
-                            (note.categorizedQuestions as any)[activePracticeType] :
-                            note.categorizedQuestions;
-                          const allGenerated = (note.categorizedQuestions as any).allGenerated?.[category.key] || [];
-                          const displayed = currentQuestions?.[category.key]?.length || 0;
-                          const hasMore = allGenerated.length > displayed;
-                          
-                          return (
-                            <Button 
-                              key={category.key}
-                              onClick={() => handleGenerate('categorized', { markers: category.markers })}
-                              isLoading={generating === `categorized-${category.markers}`}
-                              className={`bg-gradient-to-r ${category.color} text-white text-sm px-4 py-2`}
-                              size="sm"
-                            >
-                              {hasMore ? '📥 Load More' : '🎯 Generate'} {category.label}
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
+
                 </div>
               </div>
             ) : (

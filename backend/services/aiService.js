@@ -1052,9 +1052,10 @@ TEXT CONTENT: "${textContent.substring(0, 4000)}"`
       const flashcards = cleanAndParseJson(rawResponse);
       
       // For non-code content, return as theory flashcards to match controller expectations
+      const validFlashcards = Array.isArray(flashcards) ? flashcards : [];
       return {
-        theory: Array.isArray(flashcards) ? flashcards : [],
-        practical: []
+        theory: validFlashcards,
+        practical: [] // Keep empty for non-code content
       };
     }
   } catch (error) {

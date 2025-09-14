@@ -127,6 +127,23 @@ export const extractTextFromFile = async (file) => {
     else if (file.mimetype === 'text/plain') {
       const text = file.buffer.toString('utf8');
       return text.replace(/\uFEFF/g, '').trim(); // Remove BOM and clean
+    }
+    else if (file.mimetype === 'text/html') {
+      console.log('Processing HTML document...');
+      const htmlContent = file.buffer.toString('utf8');
+      // Extract text from HTML by removing tags
+      const textContent = htmlContent
+        .replace(/<[^>]*>/g, '') // Remove HTML tags
+        .replace(/&nbsp;/g, ' ') // Replace HTML entities
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\uFEFF/g, '') // Remove BOM
+        .trim();
+      console.log('HTML text extraction completed, length:', textContent.length);
+      return textContent || 'HTML document uploaded successfully but no text content found.';
     } 
     else {
       throw new Error('Unsupported file type. Please upload a PDF, DOC, DOCX, or TXT file.');

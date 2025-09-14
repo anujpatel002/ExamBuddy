@@ -8,16 +8,17 @@ interface FlashcardProps {
 
 const Flashcard = ({ flashcard }: FlashcardProps) => {
   const [showAnswer, setShowAnswer] = useState(false);
+  console.log('Flashcard component rendering:', flashcard.question.substring(0, 50));
 
   const toggleAnswer = () => {
     setShowAnswer(!showAnswer);
   };
 
   return (
-    <div className={`relative w-full ${showAnswer ? 'h-auto' : 'h-64'} perspective-1000 transition-all duration-700 ease-in-out overflow-hidden`}>
-      <div className={`relative w-full h-full transition-transform duration-700 transform-style-preserve-3d ${showAnswer ? 'rotate-y-180' : ''}`}>
+    <div className={`relative w-full ${showAnswer ? 'h-auto' : 'h-64'} transition-all duration-700 ease-in-out overflow-hidden`} style={{perspective: '1000px'}}>
+      <div className={`relative w-full h-full transition-transform duration-700`} style={{transformStyle: 'preserve-3d', transform: showAnswer ? 'rotateY(180deg)' : 'rotateY(0deg)'}}>
         {/* Front Side - Question */}
-        <div className="absolute inset-0 w-full h-full backface-hidden bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300" style={{backfaceVisibility: 'hidden'}}>
           <div className="p-6 h-64 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -57,7 +58,7 @@ const Flashcard = ({ flashcard }: FlashcardProps) => {
         </div>
 
         {/* Back Side - Answer */}
-        <div className={`${showAnswer ? 'relative' : 'absolute inset-0'} w-full ${showAnswer ? 'h-auto' : 'h-64'} min-h-64 backface-hidden rotate-y-180 bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-700 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-700 ease-in-out ${showAnswer ? 'z-10' : ''}`}>
+        <div className={`${showAnswer ? 'relative' : 'absolute inset-0'} w-full ${showAnswer ? 'h-auto' : 'h-64'} min-h-64 bg-gradient-to-br from-green-50 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-700 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-700 ease-in-out ${showAnswer ? 'z-10' : ''}`} style={{backfaceVisibility: 'hidden', transform: 'rotateY(180deg)'}}>
           <div className="p-6 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -72,9 +73,9 @@ const Flashcard = ({ flashcard }: FlashcardProps) => {
               </button>
             </div>
             
-            <div className="mb-4">
+            <div className="mb-4 flex-1 overflow-y-auto">
               <div className="prose prose-sm dark:prose-invert max-w-none">
-                <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
+                <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere">
                   {flashcard.answer.replace(/<[^>]*>/g, '')}
                 </p>
               </div>

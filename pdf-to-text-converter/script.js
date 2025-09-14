@@ -143,14 +143,24 @@ downloadTxt.addEventListener('click', () => {
 });
 
 downloadDocx.addEventListener('click', () => {
-    // Create RTF format which opens in Word
-    const rtfContent = `{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}} \\f0\\fs24 ${extractedText.replace(/\n/g, '\\par ')}}`;
+    // Create HTML file with proper UTF-8 encoding for Gujarati text
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Extracted Text</title>
+    <style>body{font-family:Arial,sans-serif;line-height:1.6;margin:20px;}</style>
+</head>
+<body>
+    <pre>${extractedText}</pre>
+</body>
+</html>`;
     
-    const blob = new Blob([rtfContent], { type: 'application/rtf' });
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = selectedFile.name.replace('.pdf', '_extracted.rtf');
+    a.download = selectedFile.name.replace('.pdf', '_extracted.html');
     a.click();
     URL.revokeObjectURL(url);
 });

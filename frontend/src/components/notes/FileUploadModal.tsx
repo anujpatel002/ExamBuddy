@@ -112,7 +112,7 @@ export default function FileUploadModal(props: FileUploadModalProps) {
               setShowPdfConverter(false);
             }}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
-            accept=".pdf,.doc,.docx,.txt"
+            accept=".pdf,.doc,.docx,.txt,.html"
             required
           />
         </div>

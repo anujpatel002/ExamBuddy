@@ -95,10 +95,10 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
                 This PDF contains images and cannot be processed directly.
               </p>
               <p className="text-green-600 dark:text-green-400 text-sm mb-3">
-                <strong>Mobile users:</strong> Save your content as RTF format instead - it works better with Gujarati text on mobile.
+                <strong>Mobile users:</strong> Use HTML format - it preserves Gujarati text properly on mobile.
               </p>
               <p className="text-blue-800 dark:text-blue-200 text-sm mb-3">
-                Or use PDF converter (downloads as TXT or RTF):
+                Or use PDF converter (downloads as TXT or HTML):
               </p>
               <Button
                 type="button"
@@ -118,7 +118,7 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
               setShowPdfConverter(false);
             }}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
-            accept=".pdf,.doc,.docx,.txt"
+            accept=".pdf,.doc,.docx,.txt,.html"
             required
           />
         </div>
