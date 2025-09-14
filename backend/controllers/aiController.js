@@ -89,8 +89,8 @@ const createFlashcards = asyncHandler(async (req, res) => {
         console.log(`${type} - Total: ${allCards.length}, Displayed: ${currentDisplayed}, Remaining: ${remainingCards.length}`);
         
         if (remainingCards.length > 0) {
-            // Random batch size between 3-5 cards
-            const batchSizes = [3, 4, 5];
+            // Show more cards - between 8-15
+            const batchSizes = [8, 10, 12, 15];
             const randomBatchSize = batchSizes[Math.floor(Math.random() * batchSizes.length)];
             const actualBatchSize = Math.min(randomBatchSize, remainingCards.length);
             
@@ -134,11 +134,12 @@ const createFlashcards = asyncHandler(async (req, res) => {
             });
             
             const isUniqueQuestion = (newQuestion, existingCards) => {
-                const normalizeQuestion = (q) => q.toLowerCase().replace(/[^\w\s]/g, '').trim();
+                const normalizeQuestion = (q) => q.toLowerCase().replace(/[^\w\s\u0A80-\u0AFF\u0900-\u097F]/g, '').trim();
                 const newQ = normalizeQuestion(newQuestion);
                 const isUnique = !existingCards.some(card => {
                     const existingQ = normalizeQuestion(card.question);
-                    return existingQ === newQ;
+                    const similarity = existingQ === newQ || (existingQ.length > 10 && newQ.length > 10 && existingQ.includes(newQ.substring(0, 15)));
+                    return similarity;
                 });
                 console.log(`Question uniqueness check: "${newQuestion.substring(0, 50)}..." - Unique: ${isUnique}`);
                 return isUnique;
@@ -151,10 +152,9 @@ const createFlashcards = asyncHandler(async (req, res) => {
                 );
                 if (uniqueTheory.length > 0) {
                     note.flashcards.allGenerated.theory = [...allExisting, ...uniqueTheory];
-                    const cardsToShow = uniqueTheory.slice(0, 5);
-                    note.flashcards.theory = [...(note.flashcards.theory || []), ...cardsToShow];
-                    note.flashcards.displayedCount.theory = (note.flashcards.displayedCount.theory || 0) + cardsToShow.length;
-                    console.log(`Added ${uniqueTheory.length} new theory flashcards, showing ${cardsToShow.length}`);
+                    note.flashcards.theory = [...(note.flashcards.theory || []), ...uniqueTheory];
+                    note.flashcards.displayedCount.theory = (note.flashcards.displayedCount.theory || 0) + uniqueTheory.length;
+                    console.log(`Added ${uniqueTheory.length} new theory flashcards, showing ${uniqueTheory.length}`);
                 }
             } else if (type === 'practical' && newFlashcards?.practical) {
                 const allExisting = note.flashcards.allGenerated.practical || [];
@@ -163,10 +163,9 @@ const createFlashcards = asyncHandler(async (req, res) => {
                 );
                 if (uniquePractical.length > 0) {
                     note.flashcards.allGenerated.practical = [...allExisting, ...uniquePractical];
-                    const cardsToShow = uniquePractical.slice(0, 5);
-                    note.flashcards.practical = [...(note.flashcards.practical || []), ...cardsToShow];
-                    note.flashcards.displayedCount.practical = (note.flashcards.displayedCount.practical || 0) + cardsToShow.length;
-                    console.log(`Added ${uniquePractical.length} new practical flashcards, showing ${cardsToShow.length}`);
+                    note.flashcards.practical = [...(note.flashcards.practical || []), ...uniquePractical];
+                    note.flashcards.displayedCount.practical = (note.flashcards.displayedCount.practical || 0) + uniquePractical.length;
+                    console.log(`Added ${uniquePractical.length} new practical flashcards, showing ${uniquePractical.length}`);
                 }
             } else if (!type && newFlashcards) {
                 // Handle both code and non-code content
@@ -184,15 +183,13 @@ const createFlashcards = asyncHandler(async (req, res) => {
                     
                     if (uniqueTheory.length > 0) {
                         note.flashcards.allGenerated.theory = [...allExistingTheory, ...uniqueTheory];
-                        const theoryToShow = uniqueTheory.slice(0, 5);
-                        note.flashcards.theory = [...(note.flashcards.theory || []), ...theoryToShow];
-                        note.flashcards.displayedCount.theory = (note.flashcards.displayedCount.theory || 0) + theoryToShow.length;
+                        note.flashcards.theory = [...(note.flashcards.theory || []), ...uniqueTheory];
+                        note.flashcards.displayedCount.theory = (note.flashcards.displayedCount.theory || 0) + uniqueTheory.length;
                     }
                     if (uniquePractical.length > 0) {
                         note.flashcards.allGenerated.practical = [...allExistingPractical, ...uniquePractical];
-                        const practicalToShow = uniquePractical.slice(0, 5);
-                        note.flashcards.practical = [...(note.flashcards.practical || []), ...practicalToShow];
-                        note.flashcards.displayedCount.practical = (note.flashcards.displayedCount.practical || 0) + practicalToShow.length;
+                        note.flashcards.practical = [...(note.flashcards.practical || []), ...uniquePractical];
+                        note.flashcards.displayedCount.practical = (note.flashcards.displayedCount.practical || 0) + uniquePractical.length;
                     }
                     console.log('Code content generation - Theory:', uniqueTheory.length, 'Practical:', uniquePractical.length);
                 } else if (Array.isArray(newFlashcards.theory)) {
@@ -204,10 +201,9 @@ const createFlashcards = asyncHandler(async (req, res) => {
                     
                     if (uniqueTheory.length > 0) {
                         note.flashcards.allGenerated.theory = [...allExistingTheory, ...uniqueTheory];
-                        const theoryToShow = uniqueTheory.slice(0, 5);
-                        note.flashcards.theory = [...(note.flashcards.theory || []), ...theoryToShow];
-                        note.flashcards.displayedCount.theory = (note.flashcards.displayedCount.theory || 0) + theoryToShow.length;
-                        console.log(`Non-code content: Added ${uniqueTheory.length} flashcards, showing ${theoryToShow.length}`);
+                        note.flashcards.theory = [...(note.flashcards.theory || []), ...uniqueTheory];
+                        note.flashcards.displayedCount.theory = (note.flashcards.displayedCount.theory || 0) + uniqueTheory.length;
+                        console.log(`Non-code content: Added ${uniqueTheory.length} flashcards, showing ${uniqueTheory.length}`);
                     }
                 }
             }

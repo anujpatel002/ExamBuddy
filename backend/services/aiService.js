@@ -648,6 +648,9 @@ Return ONLY valid JSON array:
 [{"question": "Question text", "answer": "<strong>Key Point:</strong> Definition here.<br><br>Explanation with <strong>important terms</strong> highlighted.<br><br>Examples and applications.", "marks": ${markers}}]`}
 
 AVOID these questions: ${existingQuestionsString}${languageSpecificInstruction}
+
+CRITICAL: Use ONLY information from the provided text below. Do NOT generate questions about topics not mentioned in this text.
+
 TEXT: "${textContent.substring(0, 2000)}"`;
     
     const rawResponse = await generateContent(prompt);
@@ -1036,7 +1039,7 @@ export const generateFlashcards = async (textContent, existingCount = 0, type = 
   try {
     if (hasCodeContent) {
       // Generate theory flashcards - focus on concepts, definitions, principles
-      const cardCount = requestCount || 5;
+      const cardCount = requestCount || 15;
       const avoidQuestions = existingQuestions.length > 0 ? `\nAVOID these existing questions: ${existingQuestions.slice(0, 10).join(', ')}` : '';
       
       // Detect language and adjust prompts accordingly
@@ -1052,13 +1055,14 @@ IMPORTANT RULES:
 2. Generate in the SAME LANGUAGE as the input text
 3. Focus on definitions, concepts, and key points from the actual content
 4. Do NOT create generic or external content
+5. Analyze the ENTIRE content deeply for comprehensive coverage
 
 Return ONLY a JSON array:
 [{"question": "What is [concept from text]?", "answer": "[Definition from text]\n\nKey Points:\n• Point 1 from text\n• Point 2 from text"}]
 
 Focus on theoretical concepts from the provided content${avoidQuestions}${languageInstruction}
 
-ACTUAL TEXT CONTENT: "${textContent.substring(0, 4000)}"`;
+ACTUAL TEXT CONTENT: "${textContent}"`;
 
       // Generate practical flashcards - focus on implementation, syntax, examples
       const practicalPrompt = `Generate EXACTLY ${type === 'practical' ? cardCount : 5} practical flashcards based STRICTLY on the provided text content.
@@ -1068,26 +1072,27 @@ IMPORTANT RULES:
 2. Generate in the SAME LANGUAGE as the input text
 3. Focus on procedures, methods, and practical applications from the actual content
 4. Do NOT create generic or external content
+5. Analyze the ENTIRE content deeply for comprehensive coverage
 
 Return ONLY a JSON array:
 [{"question": "How to [process from text]?", "answer": "Steps from text:\n\n1. Step 1 from content\n2. Step 2 from content\n\nExample from text: [actual example]"}]
 
 Focus on practical applications from the provided content${avoidQuestions}${languageInstruction}
 
-ACTUAL TEXT CONTENT: "${textContent.substring(0, 4000)}"`;
+ACTUAL TEXT CONTENT: "${textContent}"`;
 
       console.log('Generating flashcards - Type:', type, 'Count:', cardCount, 'Language:', detectedLanguage);
       
       if (type === 'theory') {
         const theoryResponse = await generateContent(theoryPrompt);
         const theoryCards = cleanAndParseJson(theoryResponse);
-        const validTheoryCards = Array.isArray(theoryCards) ? theoryCards.filter(card => card.question && card.answer) : [];
+        const validTheoryCards = Array.isArray(theoryCards) ? theoryCards.filter(card => card.question && card.answer).map(card => ({question: card.question, answer: card.answer})) : [];
         console.log(`Theory generation: requested ${cardCount}, got ${validTheoryCards.length}`);
         return { theory: validTheoryCards, practical: [] };
       } else if (type === 'practical') {
         const practicalResponse = await generateContent(practicalPrompt);
         const practicalCards = cleanAndParseJson(practicalResponse);
-        const validPracticalCards = Array.isArray(practicalCards) ? practicalCards.filter(card => card.question && card.answer) : [];
+        const validPracticalCards = Array.isArray(practicalCards) ? practicalCards.filter(card => card.question && card.answer).map(card => ({question: card.question, answer: card.answer})) : [];
         console.log(`Practical generation: requested ${cardCount}, got ${validPracticalCards.length}`);
         return { theory: [], practical: validPracticalCards };
       } else {
@@ -1109,18 +1114,20 @@ ACTUAL TEXT CONTENT: "${textContent.substring(0, 4000)}"`;
       }
     } else {
       // Generate regular flashcards for non-code content - treat all languages the same
-      const cardCount = requestCount || 10;
+      const cardCount = requestCount || 15;
       const detectedLanguage = detectLanguage(textContent);
       const languageInstruction = getLanguageInstruction(detectedLanguage);
       
       const prompt = `Generate EXACTLY ${cardCount} flashcards based STRICTLY on the provided text content.
+
+IMPORTANT: Analyze the ENTIRE content deeply and extract diverse concepts from different sections.
 
 Return ONLY a JSON array with exactly ${cardCount} objects:
 [{"question": "Question from the text", "answer": "Answer from the text"}]
 
 Generate flashcards in the same language as the input text.${languageInstruction}
 
-TEXT CONTENT: "${textContent.substring(0, 4000)}"`
+TEXT CONTENT: "${textContent}"`
       
       const rawResponse = await generateContent(prompt);
       const flashcards = cleanAndParseJson(rawResponse);

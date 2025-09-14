@@ -30,8 +30,8 @@ const upload = multer({
     cb(null, true);
   },
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
-    fieldSize: 25 * 1024 * 1024 // 25MB field size for mobile compatibility
+    fileSize: 100 * 1024 * 1024, // 100MB limit
+    fieldSize: 50 * 1024 * 1024 // 50MB field size for mobile compatibility
   }
 });
 

@@ -74,8 +74,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // 2. Body parsers with mobile-friendly limits
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // 3. Custom middleware to attach socket info to requests.
 // This MUST come before the API routes.

@@ -5,7 +5,12 @@ import { uploadNote } from '../../controllers/noteController.js';
 import multer from 'multer';
 
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100MB limit
+  }
+});
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://exambuddy-delta.vercel.app');

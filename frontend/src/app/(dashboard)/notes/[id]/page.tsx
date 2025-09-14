@@ -212,7 +212,7 @@ export default function NoteDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [aiProgress, setAiProgress] = useState({ message: '', progress: 0 });
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [pinnedQuestions, setPinnedQuestions] = useState<{[key: string]: string[]}>({});
+  const [pinnedQuestions, setPinnedQuestions] = useState<any[]>([]);
 
   // Detect theme changes
   useEffect(() => {
@@ -368,6 +368,18 @@ export default function NoteDetailPage() {
       const quizRes = await api.get('/quizzes/my');
       const noteQuizzes = quizRes.data.filter((quiz: IQuiz) => quiz.note?._id === noteId);
       
+      // Fetch pinned questions for this note's subject
+      if (noteRes.data.subject) {
+        try {
+          const pinnedRes = await api.get(`/pinned-questions/${noteRes.data.subject}`);
+          console.log('Fetched pinned questions:', pinnedRes.data.pinnedQuestions);
+          setPinnedQuestions(pinnedRes.data.pinnedQuestions || []);
+        } catch (error) {
+          console.error('Failed to fetch pinned questions:', error);
+          setPinnedQuestions([]);
+        }
+      }
+      
       // Apply quiz reset if needed
       if (shouldReset && noteQuizzes.length > 3) {
         try {
@@ -402,6 +414,11 @@ export default function NoteDetailPage() {
   useEffect(() => {
     fetchNoteAndQuizzes();
   }, [noteId]);
+  
+  // Force re-render when pinned questions change
+  useEffect(() => {
+    // This will trigger a re-render and re-sort
+  }, [pinnedQuestions]);
   
 
   
@@ -579,23 +596,37 @@ export default function NoteDetailPage() {
     }
   };
 
-  const handlePinQuestion = (questionId: string, marker: string) => {
-    setPinnedQuestions(prev => {
-      const markerPinned = prev[marker] || [];
-      const isCurrentlyPinned = markerPinned.includes(questionId);
-      
-      if (isCurrentlyPinned) {
-        return {
-          ...prev,
-          [marker]: markerPinned.filter(id => id !== questionId)
-        };
+  const handlePinQuestion = async (questionId: string, marker: string) => {
+    const questionIndex = parseInt(questionId);
+    const isPinned = pinnedQuestions.some(pin => 
+      pin.questionIndex === questionIndex && pin.category === marker
+    );
+    
+    try {
+      if (isPinned) {
+        await api.post('/pinned-questions/unpin', {
+          subjectId: note?.subject,
+          questionIndex,
+          category: marker
+        });
+        setPinnedQuestions(prev => prev.filter(pin => 
+          !(pin.questionIndex === questionIndex && pin.category === marker)
+        ));
       } else {
-        return {
-          ...prev,
-          [marker]: [...markerPinned, questionId]
-        };
+        await api.post('/pinned-questions/pin', {
+          subjectId: note?.subject,
+          questionIndex,
+          category: marker
+        });
+        setPinnedQuestions(prev => [...prev, {
+          questionIndex,
+          category: marker,
+          subjectId: note?.subject
+        }]);
       }
-    });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to toggle pin');
+    }
   };
 
   if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
@@ -927,7 +958,7 @@ export default function NoteDetailPage() {
 
                 {/* Questions Content */}
                 <div className="p-4 sm:p-6">
-                  <div className="space-y-4">
+                  <div className="space-y-4" key={`${activePracticeTab}-${pinnedQuestions.length}`}>
                     {(() => {
                       const currentQuestions = (note.categorizedQuestions as any).theory ? 
                         (note.categorizedQuestions as any)[activePracticeType] :
@@ -944,24 +975,32 @@ export default function NoteDetailPage() {
                       }
                       
                       // Sort questions to show pinned ones first
-                      const pinnedIds = pinnedQuestions[activePracticeTab] || [];
+                      console.log('Sorting questions. Pinned questions:', pinnedQuestions);
+                      console.log('Active practice tab:', activePracticeTab);
                       const sortedQuestions = questionsToShow.sort((a, b) => {
-                        const aId = a._id || `${questionsToShow.indexOf(a)}`;
-                        const bId = b._id || `${questionsToShow.indexOf(b)}`;
-                        const aPinned = pinnedIds.includes(aId);
-                        const bPinned = pinnedIds.includes(bId);
+                        const aIndex = allQuestions.indexOf(a);
+                        const bIndex = allQuestions.indexOf(b);
+                        const aPinned = pinnedQuestions.some(pin => 
+                          pin.questionIndex === aIndex && pin.category === activePracticeTab
+                        );
+                        const bPinned = pinnedQuestions.some(pin => 
+                          pin.questionIndex === bIndex && pin.category === activePracticeTab
+                        );
+                        console.log(`Question ${aIndex} pinned: ${aPinned}, Question ${bIndex} pinned: ${bPinned}`);
                         if (aPinned && !bPinned) return -1;
                         if (!aPinned && bPinned) return 1;
                         return 0;
                       });
                       
                       return sortedQuestions.map((q: any, index: number) => {
-                        const questionId = q._id || `${allQuestions.indexOf(q)}`;
-                        const isPinned = pinnedIds.includes(questionId);
+                        const questionIndex = allQuestions.indexOf(q);
+                        const isPinned = pinnedQuestions.some(pin => 
+                          pin.questionIndex === questionIndex && pin.category === activePracticeTab
+                        );
                         return (
                           <PracticeQuestionCard 
-                            key={questionId} 
-                            question={{...q, _id: questionId}} 
+                            key={`${questionIndex}-${isPinned}`} 
+                            question={{...q, _id: questionIndex.toString()}} 
                             index={index} 
                             activePracticeTab={activePracticeTab}
                             questionCategories={questionCategories}
