@@ -26,6 +26,7 @@ import initializeSocket from './socket/socketHandler.js';
 import doubtSolverRoutes from './routes/doubtSolverRoutes.js';
 import gamificationRoutes from './routes/gamificationRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
+import ocrRoutes from './routes/ocrRoutes.js';
 import securityHeaders from './middleware/securityHeaders.js'; 
 
 connectDB();
@@ -71,9 +72,9 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// 2. Body parsers.
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// 2. Body parsers with mobile-friendly limits
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // 3. Custom middleware to attach socket info to requests.
 // This MUST come before the API routes.
@@ -95,6 +96,7 @@ app.use('/api/question-bank', questionBankRoutes);
 app.use('/api/study-rooms', studyRoomRoutes);
 app.use('/api/doubt-solver', doubtSolverRoutes);
 app.use('/api/gamification', gamificationRoutes);
+app.use('/api/ocr', ocrRoutes);
 app.use('/api', healthRoutes);
 
 // --- Error Handling ---

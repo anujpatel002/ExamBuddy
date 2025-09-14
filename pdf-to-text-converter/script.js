@@ -14,7 +14,7 @@ const progressText = document.getElementById('progressText');
 const status = document.getElementById('status');
 const downloadSection = document.getElementById('downloadSection');
 const downloadTxt = document.getElementById('downloadTxt');
-const downloadWord = document.getElementById('downloadWord');
+
 
 // File upload handling
 uploadArea.addEventListener('click', () => fileInput.click());
@@ -141,18 +141,7 @@ downloadTxt.addEventListener('click', () => {
     URL.revokeObjectURL(url);
 });
 
-downloadWord.addEventListener('click', () => {
-    // Create RTF format that Word can open as DOCX
-    const rtfContent = `{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}} \\f0\\fs24 Extracted Text from ${selectedFile.name}\\par\\par ${extractedText.replace(/\n/g, '\\par ')}}`;
-    
-    const blob = new Blob([rtfContent], { type: 'application/rtf' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = selectedFile.name.replace('.pdf', '_extracted.rtf');
-    a.click();
-    URL.revokeObjectURL(url);
-});
+
 
 // Utility functions
 function updateProgress(percent, text) {

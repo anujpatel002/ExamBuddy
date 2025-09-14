@@ -529,6 +529,9 @@ export const generateSummary = async (textContent) => {
 };
 
 const detectPracticalContent = (textContent) => {
+  // For non-English content, be more conservative about practical detection
+  const hasUnicodeText = /[\u0900-\u097F\u0A80-\u0AFF]+/.test(textContent);
+  
   const practicalKeywords = [
     'implementation', 'code', 'algorithm', 'program', 'function', 'method', 'class',
     'procedure', 'steps', 'process', 'workflow', 'example', 'case study', 'scenario',
@@ -546,14 +549,13 @@ const detectPracticalContent = (textContent) => {
     lowerContent.includes(keyword)
   ).length;
   
-  // Enhanced code pattern detection
+  // Enhanced code pattern detection - but be more conservative for Unicode text
   const codePatterns = [
     /\b\w+\s*\(/,  // function calls like function()
     /\bif\s*\(/,   // if statements
     /\bfor\s*\(/,  // for loops
     /\bwhile\s*\(/, // while loops
     /\{[^}]*\}/,   // code blocks
-    /\[.*\]/,      // arrays
     /\w+\s*=/,     // assignments
     /\bclass\s+\w+/, // class definitions
     /\bdef\s+\w+/,   // function definitions
@@ -568,8 +570,11 @@ const detectPracticalContent = (textContent) => {
     pattern.test(textContent)
   ).length;
   
-  const detected = keywordCount >= 2 || codePatternCount >= 1;
-  console.log(`Practical content detection: keywords=${keywordCount}, patterns=${codePatternCount}, detected=${detected}`);
+  // For Unicode text (Hindi/Gujarati), require more evidence of practical content
+  const threshold = hasUnicodeText ? 3 : 1;
+  const detected = keywordCount >= 3 || codePatternCount >= threshold;
+  
+  console.log(`Practical content detection: keywords=${keywordCount}, patterns=${codePatternCount}, hasUnicode=${hasUnicodeText}, threshold=${threshold}, detected=${detected}`);
   
   return detected;
 };
@@ -921,8 +926,11 @@ const detectLanguage = (text) => {
     scores[lang] = matches ? matches.length : 0;
   }
   
+  console.log('Language detection scores:', scores);
   const detectedLang = Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
-  return scores[detectedLang] > 0 ? detectedLang : 'english';
+  const finalLang = scores[detectedLang] > 0 ? detectedLang : 'english';
+  console.log('Detected language:', finalLang);
+  return finalLang;
 };
 
 // Language-specific prompt helper
@@ -935,6 +943,11 @@ const getLanguageInstruction = (language) => {
 };
 
 export const generateFlashcards = async (textContent, existingCount = 0, type = null, existingQuestions = [], requestCount = null) => {
+  console.log('=== FLASHCARD GENERATION DEBUG ===');
+  console.log('Text content length:', textContent?.length || 0);
+  console.log('First 200 chars of text:', textContent?.substring(0, 200) || 'No content');
+  console.log('Text contains Gujarati chars:', /[\u0A80-\u0AFF]+/.test(textContent || ''));
+  
   const hasCodeContent = detectPracticalContent(textContent);
   console.log('Generating flashcards - hasCodeContent:', hasCodeContent);
   
@@ -950,24 +963,36 @@ export const generateFlashcards = async (textContent, existingCount = 0, type = 
       
       const languageInstruction = getLanguageInstruction(detectedLanguage);
       
-      const theoryPrompt = `Generate EXACTLY ${type === 'theory' ? cardCount : 5} EXAM-ORIENTED theoretical flashcards with clean formatting.
+      const theoryPrompt = `Generate EXACTLY ${type === 'theory' ? cardCount : 5} theoretical flashcards based STRICTLY on the provided text content.
+
+IMPORTANT RULES:
+1. Use ONLY information from the provided text
+2. Generate in the SAME LANGUAGE as the input text
+3. Focus on definitions, concepts, and key points from the actual content
+4. Do NOT create generic or external content
 
 Return ONLY a JSON array:
-[{"question": "What is [concept]?", "answer": "[Concept] is defined as...\n\nKey Features:\n• Feature 1: Description\n• Feature 2: Description\n\nApplications: Where it's used"}]
+[{"question": "What is [concept from text]?", "answer": "[Definition from text]\n\nKey Points:\n• Point 1 from text\n• Point 2 from text"}]
 
-Focus on EXAM-LEVEL theoretical questions${avoidQuestions}${languageInstruction}
+Focus on theoretical concepts from the provided content${avoidQuestions}${languageInstruction}
 
-TEXT: "${textContent.substring(0, 2000)}"`;
+ACTUAL TEXT CONTENT: "${textContent.substring(0, 4000)}"`;
 
       // Generate practical flashcards - focus on implementation, syntax, examples
-      const practicalPrompt = `Generate EXACTLY ${type === 'practical' ? cardCount : 5} EXAM-ORIENTED practical flashcards with clean code formatting.
+      const practicalPrompt = `Generate EXACTLY ${type === 'practical' ? cardCount : 5} practical flashcards based STRICTLY on the provided text content.
+
+IMPORTANT RULES:
+1. Use ONLY information from the provided text
+2. Generate in the SAME LANGUAGE as the input text
+3. Focus on procedures, methods, and practical applications from the actual content
+4. Do NOT create generic or external content
 
 Return ONLY a JSON array:
-[{"question": "How do you implement [task]?", "answer": "Implementation Steps:\n\n1. Step 1: Description\n2. Step 2: Description\n\nCode Example:\n\n[code here]\n\nExplanation:\n• Line 1: Purpose\n• Line 2: Logic"}]
+[{"question": "How to [process from text]?", "answer": "Steps from text:\n\n1. Step 1 from content\n2. Step 2 from content\n\nExample from text: [actual example]"}]
 
-Focus on EXAM-LEVEL practical questions${avoidQuestions}${languageInstruction}
+Focus on practical applications from the provided content${avoidQuestions}${languageInstruction}
 
-TEXT: "${textContent.substring(0, 2000)}"`;
+ACTUAL TEXT CONTENT: "${textContent.substring(0, 4000)}"`;
 
       console.log('Generating flashcards - Type:', type, 'Count:', cardCount, 'Language:', detectedLanguage);
       
@@ -1006,12 +1031,43 @@ TEXT: "${textContent.substring(0, 2000)}"`;
       const detectedLanguage = detectLanguage(textContent);
       const languageInstruction = getLanguageInstruction(detectedLanguage);
       
-      const prompt = `Generate EXACTLY ${cardCount} flashcards. You MUST return exactly ${cardCount} flashcards, no more, no less.
+      // Check if we have meaningful content
+      if (!textContent || textContent.trim().length < 100) {
+        console.log('Insufficient text content for flashcard generation');
+        return { theory: [], practical: [] };
+      }
+      
+      // Check for corrupted text extraction (but not guidance messages)
+      const corruptionSigns = [
+        /^[0-9\s\(\):\-]+$/, // Only numbers and punctuation
+        /[A-Za-z]{1}[^\s]{10,}/, // Random character sequences
+        /^[^\u0900-\u097F\u0A80-\u0AFF\w\s]{5,}/ // Non-readable characters
+      ];
+      
+      const isGuidanceMessage = textContent.includes('Please save your file') || textContent.includes('format detected') || textContent === 'IMAGE_BASED_PDF_DETECTED';
+      const isCorrupted = !isGuidanceMessage && corruptionSigns.some(pattern => pattern.test(textContent.substring(0, 200)));
+      
+      if (isCorrupted) {
+        console.log('Detected corrupted text extraction, skipping flashcard generation');
+        return { theory: [], practical: [] };
+      }
+      
+      const prompt = `Generate EXACTLY ${cardCount} flashcards based STRICTLY on the provided text content. You MUST:
+
+1. Use ONLY information from the provided text
+2. Generate questions and answers in the SAME LANGUAGE as the input text
+3. Focus on key concepts, definitions, and important facts from the text
+4. Return exactly ${cardCount} flashcards, no more, no less
+5. If text is in Gujarati script, generate Gujarati flashcards
+6. If text is in Hindi script, generate Hindi flashcards
+7. If no meaningful content is found, return an empty array
 
 Return ONLY a JSON array with exactly ${cardCount} objects:
-[{"question": "Question", "answer": "Answer"}]${languageInstruction}
+[{"question": "Question from the text", "answer": "Answer from the text"}]
 
-TEXT: "${textContent.substring(0, 2000)}"`;
+IMPORTANT: Generate flashcards in the same language as the input text.${languageInstruction}
+
+TEXT CONTENT: "${textContent.substring(0, 4000)}"`
       
       const rawResponse = await generateContent(prompt);
       const flashcards = cleanAndParseJson(rawResponse);

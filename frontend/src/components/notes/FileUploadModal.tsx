@@ -4,7 +4,7 @@ import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
-import { FiUpload, FiX } from 'react-icons/fi';
+import { FiUpload, FiX, FiExternalLink } from 'react-icons/fi';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 
 interface FileUploadModalProps {
@@ -19,6 +19,7 @@ export default function FileUploadModal(props: FileUploadModalProps) {
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showPdfConverter, setShowPdfConverter] = useState(false);
   const { limits } = usePlanLimits();
   
   const canUpload = limits.notesPerSubject === -1 || props.currentNoteCount! < limits.notesPerSubject;
@@ -54,7 +55,11 @@ export default function FileUploadModal(props: FileUploadModalProps) {
       props.onNoteUploaded();
       props.onClose();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Upload failed');
+      if (error.response?.data?.isImageBasedPdf) {
+        setShowPdfConverter(true);
+      } else {
+        toast.error(error.response?.data?.message || 'Upload failed');
+      }
     } finally {
       setIsUploading(false);
     }
@@ -84,9 +89,28 @@ export default function FileUploadModal(props: FileUploadModalProps) {
         
         <div>
           <label className="block text-sm font-medium mb-2">File</label>
+          {showPdfConverter && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-3">
+              <p className="text-blue-800 dark:text-blue-200 text-sm mb-3">
+                This PDF contains images and cannot be processed directly. Please convert it to text first:
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => window.open('https://pdf-to-text-ten.vercel.app/', '_blank')}
+                className="text-sm"
+              >
+                <FiExternalLink className="mr-2" />
+                Convert PDF to Text
+              </Button>
+            </div>
+          )}
           <input
             type="file"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            onChange={(e) => {
+              setFile(e.target.files?.[0] || null);
+              setShowPdfConverter(false);
+            }}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
             accept=".pdf,.doc,.docx,.txt"
             required

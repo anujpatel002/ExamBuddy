@@ -10,6 +10,7 @@ import { getPlanLimits } from '../middleware/planLimits.js';
 
 const uploadNote = asyncHandler(async (req, res) => {
   console.log('=== UPLOAD DEBUG START ===');
+  console.log('User Agent:', req.get('User-Agent')?.substring(0, 100));
   console.log('Request body:', req.body);
   console.log('File info:', req.file ? {
     originalname: req.file.originalname,
@@ -40,35 +41,73 @@ const uploadNote = asyncHandler(async (req, res) => {
   }
 
   try {
+    console.log('=== FILE PROCESSING START ===');
+    console.log('Creating file hash...');
     const fileHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
+    console.log('File hash created successfully');
+    
+    console.log('Checking for existing note...');
     const existingNote = await Note.findOne({ fileHash });
+    console.log('Existing note found:', !!existingNote);
     
     // Handle Unicode filenames by creating a safe filename
-    const safeFileName = Buffer.from(file.originalname, 'utf8').toString('base64').substring(0, 50) + '_' + Date.now() + '.pdf';
+    console.log('Processing filename:', file.originalname);
+    const fileExtension = file.originalname.split('.').pop() || 'pdf';
+    console.log('File extension:', fileExtension);
+    const safeFileName = Buffer.from(file.originalname, 'utf8').toString('base64').substring(0, 50) + '_' + Date.now() + '.' + fileExtension;
+    console.log('Safe filename created:', safeFileName);
     let fileUrl = `/uploads/${safeFileName}`;
     let isDuplicate = false;
 
     if (existingNote) {
       fileUrl = existingNote.fileUrl;
       isDuplicate = true;
+      console.log('Using existing file URL:', fileUrl);
     }
 
-    console.log('Extracting text from file:', file.originalname, 'Size:', file.size, 'Type:', file.mimetype);
-    const textContent = await extractTextFromFile(file);
-    console.log('Text extraction result length:', textContent?.length || 0);
+    console.log('Starting text extraction from file:', file.originalname, 'Size:', file.size, 'Type:', file.mimetype);
+    
+    // Check if request is from mobile
+    const userAgent = req.get('User-Agent') || '';
+    const isMobile = /Mobile|Android|iPhone|iPad/.test(userAgent);
+    console.log('Is mobile request:', isMobile);
+    
+    // Set timeout for mobile devices
+    const extractionTimeout = isMobile ? 30000 : 60000; // 30s for mobile, 60s for desktop
+    
+    const textContent = await Promise.race([
+      extractTextFromFile(file),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Text extraction timeout')), extractionTimeout)
+      )
+    ]);
+    
+    console.log('Text extraction completed. Length:', textContent?.length || 0);
+    console.log('First 50 chars:', textContent?.substring(0, 50) || 'No content');
+    
+    // Check if internal OCR processing is required BEFORE saving note
+    if (textContent === 'INTERNAL_OCR_REQUIRED') {
+      console.log('Image-based PDF detected - rejecting upload');
+      
+      res.status(400);
+      throw new Error('IMAGE_BASED_PDF:This PDF contains images and cannot be processed directly. Please use the PDF-to-Text converter to extract text first, then upload the TXT file.');
+    }
     
     // Validate text content for multi-language support
     if (!textContent || textContent.trim().length === 0) {
       console.warn('No text content extracted from file');
     }
     
+    console.log('Creating note object...');
     const note = new Note({
       title, subject: subjectId, user: req.user._id, fileUrl,
       fileName: file.originalname, textContent, status: 'approved',
       fileHash, isDuplicate, embeddingStatus: 'pending'
     });
     
+    console.log('Saving note to database...');
     const createdNote = await note.save();
+    console.log('Note saved successfully with ID:', createdNote._id);
     
     await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.noteCount': 1 } });
     
@@ -100,10 +139,18 @@ const uploadNote = asyncHandler(async (req, res) => {
     console.error('Request body:', req.body);
     console.error('=== END UPLOAD ERROR ===');
     
-    res.status(500).json({
-      message: `Upload failed: ${error.message}`,
-      details: error.stack
-    });
+    if (error.message.startsWith('IMAGE_BASED_PDF:')) {
+      res.status(400).json({
+        message: error.message.replace('IMAGE_BASED_PDF:', ''),
+        isImageBasedPdf: true,
+        converterUrl: 'https://pdf-to-text-ten.vercel.app/'
+      });
+    } else {
+      res.status(500).json({
+        message: `Upload failed: ${error.message}`,
+        details: error.stack
+      });
+    }
   }
 });
 

@@ -24,12 +24,14 @@ const upload = multer({
     console.log('Multer received file:', {
       originalname: file.originalname,
       mimetype: file.mimetype,
-      encoding: file.encoding
+      encoding: file.encoding,
+      userAgent: req.get('User-Agent')?.substring(0, 100)
     });
     cb(null, true);
   },
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB limit
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fieldSize: 25 * 1024 * 1024 // 25MB field size for mobile compatibility
   }
 });
 
