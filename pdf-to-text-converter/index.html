@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Text Converter</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .container { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); max-width: 500px; width: 90%; }
+        h1 { text-align: center; color: #333; margin-bottom: 2rem; font-size: 2rem; }
+        .upload-area { border: 2px dashed #ddd; border-radius: 10px; padding: 2rem; text-align: center; margin-bottom: 1.5rem; transition: all 0.3s; cursor: pointer; }
+        .upload-area:hover { border-color: #667eea; background: #f8f9ff; }
+        .upload-area.dragover { border-color: #667eea; background: #f0f4ff; }
+        .upload-icon { font-size: 3rem; color: #ddd; margin-bottom: 1rem; }
+        .upload-text { color: #666; font-size: 1.1rem; }
+        input[type="file"] { display: none; }
+        .btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 12px 30px; border-radius: 25px; font-size: 1rem; cursor: pointer; transition: all 0.3s; margin: 0.5rem; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.2); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .progress { display: none; margin: 1rem 0; }
+        .progress-bar { width: 100%; height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); width: 0%; transition: width 0.3s; }
+        .status { margin: 1rem 0; padding: 1rem; border-radius: 8px; display: none; }
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .download-section { display: none; margin-top: 1.5rem; text-align: center; }
+        .file-info { background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 PDF to Text Converter</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">
+                <strong>Click to select PDF</strong> or drag and drop here
+                <br><small>Supports Gujarati, Hindi & English text extraction</small>
+            </div>
+            <input type="file" id="fileInput" accept=".pdf">
+        </div>
+
+        <div class="file-info" id="fileInfo" style="display: none;">
+            <strong>Selected:</strong> <span id="fileName"></span>
+            <br><small>Size: <span id="fileSize"></span></small>
+        </div>
+
+        <div style="text-align: center;">
+            <button class="btn" id="convertBtn" disabled>🔄 Convert to Text</button>
+        </div>
+
+        <div class="progress" id="progress">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div style="text-align: center; margin-top: 0.5rem;">
+                <span id="progressText">Processing...</span>
+            </div>
+        </div>
+
+        <div class="status" id="status"></div>
+
+        <div class="download-section" id="downloadSection">
+            <h3>✅ Conversion Complete!</h3>
+            <p>Choose your preferred format:</p>
+            <button class="btn" id="downloadTxt">📄 Download TXT</button>
+            <button class="btn" id="downloadWord">📝 Download RTF</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.0/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "pdf-to-text-converter",
+  "version": "1.0.0",
+  "description": "Convert PDF images to text for Gujarati content",
+  "main": "converter.js",
+  "type": "module",
+  "scripts": {
+    "start": "node converter.js"
+  },
+  "dependencies": {
+    "tesseract.js": "^5.0.0",
+    "pdf2pic": "^3.0.0"
+  }
+}
