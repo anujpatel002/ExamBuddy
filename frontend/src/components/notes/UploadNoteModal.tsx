@@ -95,10 +95,10 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
                 This PDF contains images and cannot be processed directly.
               </p>
               <p className="text-green-600 dark:text-green-400 text-sm mb-3">
-                <strong>Mobile users:</strong> Use HTML format - it preserves Gujarati text properly on mobile.
+                <strong>Solution:</strong> Convert to HTML using the converter below, then upload the HTML file here.
               </p>
               <p className="text-blue-800 dark:text-blue-200 text-sm mb-3">
-                Or use PDF converter (downloads as TXT or HTML):
+                Use PDF converter (downloads as HTML):
               </p>
               <Button
                 type="button"

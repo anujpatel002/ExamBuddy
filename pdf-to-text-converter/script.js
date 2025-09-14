@@ -13,7 +13,6 @@ const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 const status = document.getElementById('status');
 const downloadSection = document.getElementById('downloadSection');
-const downloadTxt = document.getElementById('downloadTxt');
 const downloadDocx = document.getElementById('downloadDocx');
 
 
@@ -131,17 +130,7 @@ convertBtn.addEventListener('click', async () => {
     }
 });
 
-// Download functions
-downloadTxt.addEventListener('click', () => {
-    const blob = new Blob([extractedText], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = selectedFile.name.replace('.pdf', '_extracted.txt');
-    a.click();
-    URL.revokeObjectURL(url);
-});
-
+// Download function
 downloadDocx.addEventListener('click', () => {
     // Create HTML file with proper UTF-8 encoding for Gujarati text
     const htmlContent = `<!DOCTYPE html>

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Text Converter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+        
+        .content {
+            padding: 2rem;
+        }
+        
+        .upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 3rem 1rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-bottom: 1.5rem;
+        }
+        
+        .upload-area:hover {
+            border-color: #4f46e5;
+            background: #f8fafc;
+        }
+        
+        .upload-area.dragover {
+            border-color: #4f46e5;
+            background: #eff6ff;
+        }
+        
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin: 0.25rem;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
+        }
+        
+        .progress {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+            display: none;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .result {
+            margin-top: 1.5rem;
+            display: none;
+        }
+        
+        .result textarea {
+            width: 100%;
+            min-height: 300px;
+            padding: 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+        }
+        
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            justify-content: center;
+        }
+        
+        .error {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            border-left: 4px solid #dc2626;
+            display: none;
+        }
+        
+        .success {
+            background: #f0fdf4;
+            color: #16a34a;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            border-left: 4px solid #16a34a;
+            display: none;
+        }
+        
+        @media (max-width: 640px) {
+            body {
+                padding: 0.5rem;
+            }
+            
+            .header {
+                padding: 1.5rem 1rem;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .content {
+                padding: 1.5rem 1rem;
+            }
+            
+            .upload-area {
+                padding: 2rem 1rem;
+            }
+            
+            .upload-icon {
+                font-size: 2rem;
+            }
+            
+            .btn {
+                width: 100%;
+                margin: 0.25rem 0;
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 PDF to Text Converter</h1>
+            <p>Convert your PDF files to editable text format</p>
+        </div>
+        
+        <div class="content">
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📁</div>
+                <h3>Click to upload or drag and drop</h3>
+                <p>Select your PDF file to convert</p>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf">
+            </div>
+            
+            <div class="progress">
+                <div class="progress-bar"></div>
+            </div>
+            
+            <div class="error" id="error"></div>
+            <div class="success" id="success"></div>
+            
+            <div class="result" id="result">
+                <h3>Extracted Text:</h3>
+                <textarea id="extractedText" placeholder="Extracted text will appear here..."></textarea>
+                <div class="actions">
+                    <button class="btn" onclick="downloadHtml()">💾 Download HTML</button>
+                    <button class="btn btn-secondary" onclick="reset()">🔄 Convert Another</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        let extractedText = '';
+        
+        // File input handling
+        document.getElementById('fileInput').addEventListener('change', handleFile);
+        
+        // Drag and drop
+        const uploadArea = document.querySelector('.upload-area');
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile({ target: { files } });
+            }
+        });
+        
+        async function handleFile(event) {
+            const file = event.target.files[0];
+            if (!file || file.type !== 'application/pdf') {
+                showError('Please select a valid PDF file.');
+                return;
+            }
+            
+            hideMessages();
+            showProgress();
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                let fullText = '';
+                
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    updateProgress((i / pdf.numPages) * 100);
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    fullText += pageText + '\n\n';
+                }
+                
+                extractedText = fullText.trim();
+                
+                if (!extractedText) {
+                    showError('No text found in PDF. This might be an image-based PDF.');
+                    hideProgress();
+                    return;
+                }
+                
+                document.getElementById('extractedText').value = extractedText;
+                document.getElementById('result').style.display = 'block';
+                showSuccess('PDF converted successfully!');
+                hideProgress();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Failed to process PDF. Please try another file.');
+                hideProgress();
+            }
+        }
+        
+        function showProgress() {
+            document.querySelector('.progress').style.display = 'block';
+        }
+        
+        function hideProgress() {
+            document.querySelector('.progress').style.display = 'none';
+            updateProgress(0);
+        }
+        
+        function updateProgress(percent) {
+            document.querySelector('.progress-bar').style.width = percent + '%';
+        }
+        
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        
+        function showSuccess(message) {
+            const successDiv = document.getElementById('success');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+        }
+        
+        function hideMessages() {
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('success').style.display = 'none';
+        }
+        
+        function downloadHtml() {
+            const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Converted PDF Text</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 2rem; }
+        @media (max-width: 640px) { body { margin: 1rem; } }
+    </style>
+</head>
+<body>
+    <h1>Converted PDF Text</h1>
+    <div>${extractedText.replace(/\n/g, '<br>')}</div>
+</body>
+</html>`;
+            
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'converted-text.html';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function reset() {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('result').style.display = 'none';
+            extractedText = '';
+            hideMessages();
+            hideProgress();
+        }
+    </script>
+</body>
+</html>
