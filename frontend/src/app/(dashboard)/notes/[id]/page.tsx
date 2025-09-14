@@ -727,7 +727,14 @@ export default function NoteDetailPage() {
                           console.log('Invalid flashcard:', fc);
                           return null;
                         }
-                        return <Flashcard key={`${activeFlashcardType}-${startIndex + index}`} flashcard={fc} />;
+                        return (
+                          <Flashcard 
+                            key={`${activeFlashcardType}-${startIndex + index}`} 
+                            flashcard={fc} 
+                            allFlashcards={allFlashcards}
+                            currentIndex={startIndex + index}
+                          />
+                        );
                       }).filter(Boolean);
                     })()
                     }
