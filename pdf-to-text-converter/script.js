@@ -14,6 +14,7 @@ const progressText = document.getElementById('progressText');
 const status = document.getElementById('status');
 const downloadSection = document.getElementById('downloadSection');
 const downloadTxt = document.getElementById('downloadTxt');
+const downloadDocx = document.getElementById('downloadDocx');
 
 
 // File upload handling
@@ -137,6 +138,29 @@ downloadTxt.addEventListener('click', () => {
     const a = document.createElement('a');
     a.href = url;
     a.download = selectedFile.name.replace('.pdf', '_extracted.txt');
+    a.click();
+    URL.revokeObjectURL(url);
+});
+
+downloadDocx.addEventListener('click', () => {
+    // Create a simple DOCX structure
+    const docxContent = `
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+    <w:body>
+        <w:p>
+            <w:r>
+                <w:t>${extractedText.replace(/\n/g, '</w:t></w:r></w:p><w:p><w:r><w:t>')}</w:t>
+            </w:r>
+        </w:p>
+    </w:body>
+</w:document>`;
+    
+    const blob = new Blob([docxContent], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = selectedFile.name.replace('.pdf', '_extracted.docx');
     a.click();
     URL.revokeObjectURL(url);
 });

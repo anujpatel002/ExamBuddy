@@ -92,7 +92,13 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
           {showPdfConverter && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-3">
               <p className="text-blue-800 dark:text-blue-200 text-sm mb-3">
-                This PDF contains images and cannot be processed directly. Please convert it to text first:
+                This PDF contains images and cannot be processed directly.
+              </p>
+              <p className="text-green-600 dark:text-green-400 text-sm mb-3">
+                <strong>Mobile users:</strong> Save your content as DOCX format instead - it works better with Gujarati text on mobile.
+              </p>
+              <p className="text-blue-800 dark:text-blue-200 text-sm mb-3">
+                Or use PDF converter (downloads as TXT or DOCX):
               </p>
               <Button
                 type="button"
