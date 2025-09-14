@@ -72,13 +72,13 @@ const uploadNote = asyncHandler(async (req, res) => {
     const isMobile = /Mobile|Android|iPhone|iPad/.test(userAgent);
     console.log('Is mobile request:', isMobile);
     
-    // Set timeout for mobile devices
-    const extractionTimeout = isMobile ? 30000 : 60000; // 30s for mobile, 60s for desktop
+    // Set timeout for mobile devices - increased for better mobile support
+    const extractionTimeout = isMobile ? 90000 : 120000; // 90s for mobile, 120s for desktop
     
     const textContent = await Promise.race([
       extractTextFromFile(file),
       new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Text extraction timeout')), extractionTimeout)
+        setTimeout(() => reject(new Error('Text extraction timeout - file too large or complex')), extractionTimeout)
       )
     ]);
     

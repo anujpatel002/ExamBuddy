@@ -592,17 +592,17 @@ export const generateMarkBasedQuestions = async (textContent, markers = null, ex
   
   if (markers) {
     const languageSpecificInstruction = detectedLanguage === 'gujarati' ? 
-      '\n\nઅત્યંત મહત્વપૂર્ણ: બધા પ્રશ્નો અને જવાબો સંપૂર્ણ ગુજરાતી ભાષામાં જ લખો. કોઈ પણ અંગ્રેજી શબ્દોનો ઉપયોગ કરશો નહીં. ઇનપુટ કન્ટેન્ટની ભાષા જાળવી રાખો.' :
+      '\n\nCRITICAL: Generate ALL questions and answers ONLY in GUJARATI language. Do not use any English words. Maintain the input content language strictly.' :
       detectedLanguage === 'hindi' ? 
-      '\n\nअत्यंत महत्वपूर्ण: सभी प्रश्न और उत्तर पूर्ण हिंदी भाषा में ही लिखें। कोई भी अंग्रेजी शब्दों का उपयोग न करें। इनपुट कंटेंट की भाषा को बनाए रखें।' :
-      '';
+      '\n\nCRITICAL: Generate ALL questions and answers ONLY in HINDI language. Do not use any English words. Maintain the input content language strictly.' :
+      '\n\nCRITICAL: Generate ALL questions and answers ONLY in ENGLISH language.';
       
     const prompt = `
-CRITICAL: Generate questions in ${detectedLanguage === 'gujarati' ? 'GUJARATI' : detectedLanguage === 'hindi' ? 'HINDI' : 'ENGLISH'} language ONLY.
+CRITICAL LANGUAGE REQUIREMENT: Generate questions EXCLUSIVELY in ${detectedLanguage === 'gujarati' ? 'GUJARATI' : detectedLanguage === 'hindi' ? 'HINDI' : 'ENGLISH'} language ONLY. NO mixing of languages allowed.
 
 Generate ${count} FINAL EXAM LEVEL questions worth ${markers} marks each.
 
-LANGUAGE REQUIREMENT: Generate questions and answers in the SAME LANGUAGE as the input text. If input is in Gujarati, generate PURE Gujarati questions. If input is in Hindi, generate PURE Hindi questions.
+STRICT LANGUAGE RULE: ALL content must be in ${detectedLanguage === 'gujarati' ? 'ગુજરાતી' : detectedLanguage === 'hindi' ? 'हिंदी' : 'English'} language ONLY.
 
 ANSWER FORMATTING REQUIREMENTS:
 - Use HTML formatting: <strong> for key points, <br> for line breaks
@@ -1081,6 +1081,8 @@ export const generateQuiz = async (textContent, questionCount = 10) => {
   const languageInstruction = getLanguageInstruction(detectedLanguage);
   
   const prompt = `
+  CRITICAL LANGUAGE REQUIREMENT: Generate ALL questions and options EXCLUSIVELY in ${detectedLanguage === 'gujarati' ? 'GUJARATI' : detectedLanguage === 'hindi' ? 'HINDI' : 'ENGLISH'} language ONLY.
+  
   Create ${questionCount} FINAL EXAM LEVEL MCQ questions using BLOOM'S TAXONOMY.
   
   BLOOM'S TAXONOMY DISTRIBUTION:

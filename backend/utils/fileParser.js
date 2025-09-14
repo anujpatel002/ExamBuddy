@@ -68,7 +68,7 @@ export const extractTextFromFile = async (file) => {
           }
         }
         
-        if (bestResult && bestResult.length > 200) {
+        if (bestResult && bestResult.length > 50) {
           // Clean and process the text
           const cleanText = bestResult
             .replace(/\uFEFF/g, '') // Remove BOM
@@ -76,16 +76,25 @@ export const extractTextFromFile = async (file) => {
             .replace(/\r/g, '\n')
             .trim();
           
-          console.log('PDF text extraction successful, length:', cleanText.length);
+          console.log('PDF text extraction result, length:', cleanText.length);
           console.log('First 200 chars:', cleanText.substring(0, 200));
+          
+          // Check if extracted text is meaningful (not just garbled characters)
+          const meaningfulTextRatio = (cleanText.match(/[a-zA-Z\u0900-\u097F\u0A80-\u0AFF\s]/g) || []).length / cleanText.length;
+          console.log('Meaningful text ratio:', meaningfulTextRatio);
+          
+          // If text is too short or mostly garbled, treat as image-based PDF
+          if (cleanText.length < 100 || meaningfulTextRatio < 0.5) {
+            console.log('PDF appears to be image-based (short or garbled text)');
+            return 'INTERNAL_OCR_REQUIRED';
+          }
+          
           console.log('Contains Gujarati:', /[\u0A80-\u0AFF]+/.test(cleanText));
           console.log('Contains Hindi:', /[\u0900-\u097F]+/.test(cleanText));
           
           return cleanText;
         } else {
-          console.log('PDF appears to be image-based, attempting internal OCR conversion...');
-          
-          // Return special marker for internal OCR processing
+          console.log('PDF appears to be image-based (no extractable text)');
           return 'INTERNAL_OCR_REQUIRED';
         }
       } catch (pdfError) {
