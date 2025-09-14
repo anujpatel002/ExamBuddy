@@ -59,11 +59,11 @@ export default function SoloQuizPage() {
                         </Button>
                         <Button onClick={() => {
                             if (quiz.subject) {
-                                router.replace(`/subjects/${quiz.subject._id}`);
+                                router.push(`/subjects/${quiz.subject._id}`);
                             } else if (quiz.note) {
-                                router.replace(`/notes/${quiz.note._id}`);
+                                router.push(`/notes/${quiz.note._id}`);
                             } else {
-                                router.replace('/dashboard');
+                                router.push('/dashboard');
                             }
                         }}>
                             {quiz.subject ? 'Back to Subject' : 'Back to Note'}

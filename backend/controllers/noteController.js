@@ -160,29 +160,44 @@ const getMyNotes = asyncHandler(async (req, res) => {
 });
 
 const getNoteById = asyncHandler(async (req, res) => {
-    const note = await Note.findById(req.params.id);
-
-    if (note) {
-        if (note.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-            res.status(403);
-            throw new Error('Not authorized to view this note');
-        }
-        
-        console.log('=== BACKEND - NOTE FETCH ===');
-        console.log('User ID:', req.user._id);
+    try {
+        console.log('=== GET NOTE BY ID START ===');
         console.log('Note ID:', req.params.id);
-        if (note.flashcards) {
-            console.log('Theory displayed in DB:', note.flashcards.theory?.length || 0);
-            console.log('Practical displayed in DB:', note.flashcards.practical?.length || 0);
-            console.log('Theory total in DB:', note.flashcards.allGenerated?.theory?.length || 0);
-            console.log('Practical total in DB:', note.flashcards.allGenerated?.practical?.length || 0);
-        }
-        console.log('=== END BACKEND FETCH ===');
+        console.log('User ID:', req.user._id);
         
-        res.json(note);
-    } else {
-        res.status(404);
-        throw new Error('Note not found');
+        const note = await Note.findById(req.params.id);
+        console.log('Note found:', !!note);
+
+        if (note) {
+            if (note.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+                res.status(403);
+                throw new Error('Not authorized to view this note');
+            }
+            
+            console.log('=== BACKEND - NOTE FETCH ===');
+            console.log('User ID:', req.user._id);
+            console.log('Note ID:', req.params.id);
+            if (note.flashcards) {
+                console.log('Theory displayed in DB:', note.flashcards.theory?.length || 0);
+                console.log('Practical displayed in DB:', note.flashcards.practical?.length || 0);
+                console.log('Theory total in DB:', note.flashcards.allGenerated?.theory?.length || 0);
+                console.log('Practical total in DB:', note.flashcards.allGenerated?.practical?.length || 0);
+            }
+            console.log('=== END BACKEND FETCH ===');
+            
+            res.json(note);
+        } else {
+            res.status(404);
+            throw new Error('Note not found');
+        }
+    } catch (error) {
+        console.error('=== GET NOTE BY ID ERROR ===');
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        console.error('Note ID:', req.params.id);
+        console.error('User ID:', req.user?._id);
+        console.error('=== END GET NOTE BY ID ERROR ===');
+        throw error;
     }
 });
 

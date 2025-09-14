@@ -318,7 +318,11 @@ export default function NoteDetailPage() {
   }, [note?.summary]);
 
   const fetchNoteAndQuizzes = async () => {
-    if (!noteId) return;
+    if (!noteId || noteId === 'undefined') {
+      setLoading(false);
+      router.push('/dashboard');
+      return;
+    }
     try {
       const noteRes = await api.get(`/notes/${noteId}`);
       console.log('Fetched note data:', noteRes.data);
@@ -406,9 +410,18 @@ export default function NoteDetailPage() {
       } else {
         setQuizzes(noteQuizzes.filter((quiz: IQuiz) => quiz.isVisible !== false));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching note:', error);
-      toast.error('Failed to fetch note details.');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch note details.';
+      toast.error(errorMessage);
+      
+      // If it's a 404, redirect to dashboard
+      if (error.response?.status === 404) {
+        router.push('/dashboard');
+      }
     } finally {
       setLoading(false);
     }
@@ -416,6 +429,27 @@ export default function NoteDetailPage() {
 
   useEffect(() => {
     fetchNoteAndQuizzes();
+  }, [noteId]);
+  
+  // Refetch data when returning to the page
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchNoteAndQuizzes();
+    };
+    
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchNoteAndQuizzes();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [noteId]);
   
   // Set default active types when data loads
@@ -1093,7 +1127,7 @@ export default function NoteDetailPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-4">
         <button 
-          onClick={() => router.back()} 
+          onClick={() => router.push('/dashboard')} 
           className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
           aria-label="Go back"
         >
