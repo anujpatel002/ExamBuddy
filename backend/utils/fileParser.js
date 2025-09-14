@@ -131,15 +131,19 @@ export const extractTextFromFile = async (file) => {
     else if (file.mimetype === 'text/html') {
       console.log('Processing HTML document...');
       const htmlContent = file.buffer.toString('utf8');
-      // Extract text from HTML by removing tags
+      // Extract text from HTML by removing tags and decoding entities
       const textContent = htmlContent
-        .replace(/<[^>]*>/g, '') // Remove HTML tags
+        .replace(/<script[^>]*>.*?<\/script>/gis, '') // Remove script tags
+        .replace(/<style[^>]*>.*?<\/style>/gis, '') // Remove style tags
+        .replace(/<[^>]*>/g, ' ') // Remove HTML tags and replace with space
         .replace(/&nbsp;/g, ' ') // Replace HTML entities
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
+        .replace(/&apos;/g, "'")
+        .replace(/\s+/g, ' ') // Replace multiple spaces with single space
         .replace(/\uFEFF/g, '') // Remove BOM
         .trim();
       console.log('HTML text extraction completed, length:', textContent.length);

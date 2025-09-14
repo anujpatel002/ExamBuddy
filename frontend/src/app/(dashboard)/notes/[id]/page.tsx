@@ -550,8 +550,10 @@ export default function NoteDetailPage() {
       }
       
       toast.success(`Content generated successfully!`);
-      // Refetch note data to ensure UI is updated with latest from DB
-      await fetchNoteAndQuizzes();
+      // Only refetch for summary and mindmap, not for practice questions and flashcards
+      if (type === 'summary' || type === 'mindmap') {
+        await fetchNoteAndQuizzes();
+      }
       await refreshUser(); // Refresh user data to update credits
     } catch (error: any) {
       console.error(`Error generating ${type}:`, error);

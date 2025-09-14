@@ -329,6 +329,9 @@ export const generateSummary = async (textContent) => {
   const detectedLanguage = detectLanguage(textContent);
   const languageInstruction = getLanguageInstruction(detectedLanguage);
   
+  // Check if content is large (more than 10 pages worth of text)
+  const isLargeContent = textContent.length > 10000; // Approximately 10+ pages
+  
   const prompt = `
   Create an EXTREMELY DETAILED, COMPREHENSIVE THEORETICAL summary with DEEP HIERARCHICAL STRUCTURE and perfect HTML formatting.
   
@@ -498,6 +501,8 @@ export const generateSummary = async (textContent) => {
   - Use RICH formatting with gradients, shadows, and styling
   - Make it EXAM-READY with complete information coverage
   
+  ${isLargeContent ? `CRITICAL: Since this is a large document (10+ pages), generate the ENTIRE summary in ${detectedLanguage === 'gujarati' ? 'GUJARATI' : detectedLanguage === 'hindi' ? 'HINDI' : 'ENGLISH'} language only. Do not mix languages.` : ''}
+  
   TEXT: "${textContent}"${languageInstruction}`;
   
   const response = await generateContent(prompt);
@@ -593,6 +598,8 @@ export const generateMarkBasedQuestions = async (textContent, markers = null, ex
       '';
       
     const prompt = `
+CRITICAL: Generate questions in ${detectedLanguage === 'gujarati' ? 'GUJARATI' : detectedLanguage === 'hindi' ? 'HINDI' : 'ENGLISH'} language ONLY.
+
 Generate ${count} FINAL EXAM LEVEL questions worth ${markers} marks each.
 
 LANGUAGE REQUIREMENT: Generate questions and answers in the SAME LANGUAGE as the input text. If input is in Gujarati, generate PURE Gujarati questions. If input is in Hindi, generate PURE Hindi questions.
@@ -617,6 +624,10 @@ TEXT: "${textContent.substring(0, 2000)}"`;
     const rawResponse = await generateContent(prompt);
     const result = cleanAndParseJson(rawResponse);
     console.log('Generated questions result for marker', markers, ':', result);
+    console.log('Result type:', typeof result, 'Is array:', Array.isArray(result));
+    if (result && typeof result === 'object' && !Array.isArray(result)) {
+      console.log('Result keys:', Object.keys(result));
+    }
     return Array.isArray(result) ? result : [];
   }
   

@@ -397,6 +397,8 @@ const createCategorizedQuestions = asyncHandler(async (req, res) => {
         if (markers) {
             const markerKey = markerKeyMap[markers];
             if (markerKey) {
+                console.log(`Processing marker ${markers} (${markerKey}) with questions:`, questions);
+                
                 // Handle theory/practical structure
                 if (questions.theory || questions.practical) {
                     ['theory', 'practical'].forEach(type => {
@@ -407,25 +409,48 @@ const createCategorizedQuestions = asyncHandler(async (req, res) => {
                             
                             const allExisting = note.categorizedQuestions.allGenerated[type][markerKey] || [];
                             note.categorizedQuestions.allGenerated[type][markerKey] = [...allExisting, ...questions[type][markerKey]];
-                            const questionsToShow = questions[type][markerKey].slice(0, 3);
-                            note.categorizedQuestions[type][markerKey] = [...(note.categorizedQuestions[type][markerKey] || []), ...questionsToShow];
-                            note.categorizedQuestions.displayedCount[type][markerKey] = (note.categorizedQuestions.displayedCount[type][markerKey] || 0) + questionsToShow.length;
+                            const currentQuestions = note.categorizedQuestions[type][markerKey] || [];
+                            note.categorizedQuestions[type][markerKey] = [...currentQuestions, ...questions[type][markerKey]];
+                            note.categorizedQuestions.displayedCount[type][markerKey] = (note.categorizedQuestions.displayedCount[type][markerKey] || 0) + questions[type][markerKey].length;
+                            console.log(`Added ${questions[type][markerKey].length} new ${type} ${markerKey} questions. Total displayed: ${note.categorizedQuestions.displayedCount[type][markerKey]}`);
                         }
                     });
                 } else if (Array.isArray(questions)) {
-                    // Handle direct array
-                    const allExisting = note.categorizedQuestions.allGenerated[markerKey] || [];
-                    note.categorizedQuestions.allGenerated[markerKey] = [...allExisting, ...questions];
-                    const questionsToShow = questions.slice(0, 3);
-                    note.categorizedQuestions[markerKey] = [...(note.categorizedQuestions[markerKey] || []), ...questionsToShow];
-                    note.categorizedQuestions.displayedCount[markerKey] = (note.categorizedQuestions.displayedCount[markerKey] || 0) + questionsToShow.length;
+                    // Handle direct array - append to existing questions
+                    console.log(`Processing direct array of ${questions.length} questions for ${markerKey}`);
+                    
+                    // Check if we have theory/practical structure in existing data
+                    if (note.categorizedQuestions.theory || note.categorizedQuestions.practical) {
+                        // Add to theory by default for marker-specific generation
+                        if (!note.categorizedQuestions.theory) note.categorizedQuestions.theory = {};
+                        if (!note.categorizedQuestions.allGenerated.theory) note.categorizedQuestions.allGenerated.theory = {};
+                        if (!note.categorizedQuestions.displayedCount.theory) note.categorizedQuestions.displayedCount.theory = {};
+                        
+                        const allExisting = note.categorizedQuestions.allGenerated.theory[markerKey] || [];
+                        note.categorizedQuestions.allGenerated.theory[markerKey] = [...allExisting, ...questions];
+                        const currentQuestions = note.categorizedQuestions.theory[markerKey] || [];
+                        note.categorizedQuestions.theory[markerKey] = [...currentQuestions, ...questions];
+                        note.categorizedQuestions.displayedCount.theory[markerKey] = (note.categorizedQuestions.displayedCount.theory[markerKey] || 0) + questions.length;
+                        console.log(`Added ${questions.length} new theory ${markerKey} questions. Total displayed: ${note.categorizedQuestions.displayedCount.theory[markerKey]}`);
+                    } else {
+                        // Use direct structure
+                        const allExisting = note.categorizedQuestions.allGenerated[markerKey] || [];
+                        note.categorizedQuestions.allGenerated[markerKey] = [...allExisting, ...questions];
+                        const currentQuestions = note.categorizedQuestions[markerKey] || [];
+                        note.categorizedQuestions[markerKey] = [...currentQuestions, ...questions];
+                        note.categorizedQuestions.displayedCount[markerKey] = (note.categorizedQuestions.displayedCount[markerKey] || 0) + questions.length;
+                        console.log(`Added ${questions.length} new ${markerKey} questions. Total displayed: ${note.categorizedQuestions.displayedCount[markerKey]}`);
+                    }
                 } else if (questions[markerKey]) {
-                    // Handle direct marker structure
+                    // Handle direct marker structure - append to existing questions
                     const allExisting = note.categorizedQuestions.allGenerated[markerKey] || [];
                     note.categorizedQuestions.allGenerated[markerKey] = [...allExisting, ...questions[markerKey]];
-                    const questionsToShow = questions[markerKey].slice(0, 3);
-                    note.categorizedQuestions[markerKey] = [...(note.categorizedQuestions[markerKey] || []), ...questionsToShow];
-                    note.categorizedQuestions.displayedCount[markerKey] = (note.categorizedQuestions.displayedCount[markerKey] || 0) + questionsToShow.length;
+                    const currentQuestions = note.categorizedQuestions[markerKey] || [];
+                    note.categorizedQuestions[markerKey] = [...currentQuestions, ...questions[markerKey]];
+                    note.categorizedQuestions.displayedCount[markerKey] = (note.categorizedQuestions.displayedCount[markerKey] || 0) + questions[markerKey].length;
+                    console.log(`Added ${questions[markerKey].length} new ${markerKey} questions. Total displayed: ${note.categorizedQuestions.displayedCount[markerKey]}`);
+                } else {
+                    console.log('No matching structure found for questions. Type:', typeof questions, 'Keys:', questions ? Object.keys(questions) : 'null');
                 }
             }
         } else {
