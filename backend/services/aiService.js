@@ -592,17 +592,46 @@ export const generateMarkBasedQuestions = async (textContent, markers = null, ex
   
   if (markers) {
     const languageSpecificInstruction = detectedLanguage === 'gujarati' ? 
-      '\n\nCRITICAL: Generate ALL questions and answers ONLY in GUJARATI language. Do not use any English words. Maintain the input content language strictly.' :
+      '\n\nઅત્યંત મહત્વપૂર્ણ: બધા પ્રશ્નો અને જવાબો ફક્ત ગુજરાતી ભાષામાં જ બનાવો. કોઈ પણ અંગ્રેજી શબ્દોનો ઉપયોગ કરશો નહીં.' :
       detectedLanguage === 'hindi' ? 
-      '\n\nCRITICAL: Generate ALL questions and answers ONLY in HINDI language. Do not use any English words. Maintain the input content language strictly.' :
+      '\n\nअत्यंत महत्वपूर्ण: सभी प्रश्न और उत्तर केवल हिंदी भाषा में ही बनाएं। कोई भी अंग्रेजी शब्दों का उपयोग न करें।' :
       '\n\nCRITICAL: Generate ALL questions and answers ONLY in ENGLISH language.';
       
-    const prompt = `
-CRITICAL LANGUAGE REQUIREMENT: Generate questions EXCLUSIVELY in ${detectedLanguage === 'gujarati' ? 'GUJARATI' : detectedLanguage === 'hindi' ? 'HINDI' : 'ENGLISH'} language ONLY. NO mixing of languages allowed.
+    const prompt = `${detectedLanguage === 'gujarati' ? 
+      `ગુજરાતી ભાષામાં ${count} પ્રશ્નો બનાવો જે ${markers} ગુણના હોય.
 
-Generate ${count} FINAL EXAM LEVEL questions worth ${markers} marks each.
+મહત્વપૂર્ણ નિયમો:
+- બધા પ્રશ્નો અને જવાબો ફક્ત ગુજરાતી ભાષામાં
+- HTML ફોર્મેટિંગ વાપરો: <strong> મુખ્ય મુદ્દાઓ માટે, <br> લાઇન બ્રેક માટે
+- જવાબોમાં સ્પષ્ટ વિભાગો અને બુલેટ પોઇન્ટ્સ
 
-STRICT LANGUAGE RULE: ALL content must be in ${detectedLanguage === 'gujarati' ? 'ગુજરાતી' : detectedLanguage === 'hindi' ? 'हिंदी' : 'English'} language ONLY.
+ગુણ પ્રમાણે જવાબની લંબાઈ:
+- 1 ગુણ: 1-2 વાક્યો સાથે <strong>મુખ્ય શબ્દ</strong> પ્રકાશિત
+- 3 ગુણ: 3-4 વાક્યો સાથે <strong>મુખ્ય મુદ્દાઓ</strong> અને ઉદાહરણો
+- 4 ગુણ: 4-5 વાક્યો સાથે <strong>વિગતવાર સમજૂતી</strong>, ઉદાહરણો અને ઉપયોગો
+- 5 ગુણ: 5-7 વાક્યો સાથે <strong>સંપૂર્ણ વિશ્લેષણ</strong>, અનેક ઉદાહરણો અને વાસ્તવિક ઉપયોગો
+
+ફક્ત માન્ય JSON array પરત કરો:
+[{"question": "પ્રશ્ન ટેક્સ્ટ", "answer": "<strong>મુખ્ય મુદ્દો:</strong> વ્યાખ્યા અહીં.<br><br>સમજૂતી સાથે <strong>મહત્વપૂર્ણ શબ્દો</strong> પ્રકાશિત.<br><br>ઉદાહરણો અને ઉપયોગો.", "marks": ${markers}}]` :
+      detectedLanguage === 'hindi' ? 
+      `हिंदी भाषा में ${count} प्रश्न बनाएं जो ${markers} अंक के हों.
+
+महत्वपूर्ण नियम:
+- सभी प्रश्न और उत्तर केवल हिंदी भाषा में
+- HTML फॉर्मेटिंग का उपयोग करें: <strong> मुख्य बिंदुओं के लिए, <br> लाइन ब्रेक के लिए
+- उत्तरों में स्पष्ट अनुभाग और बुलेट पॉइंट्स
+
+अंक के अनुसार उत्तर की लंबाई:
+- 1 अंक: 1-2 वाक्य के साथ <strong>मुख्य शब्द</strong> हाइलाइट
+- 3 अंक: 3-4 वाक्य के साथ <strong>मुख्य बिंदु</strong> और उदाहरण
+- 4 अंक: 4-5 वाक्य के साथ <strong>विस्तृत व्याख्या</strong>, उदाहरण और अनुप्रयोग
+- 5 अंक: 5-7 वाक्य के साथ <strong>संपूर्ण विश्लेषण</strong>, कई उदाहरण और वास्तविक अनुप्रयोग
+
+केवल मान्य JSON array वापस करें:
+[{"question": "प्रश्न टेक्स्ट", "answer": "<strong>मुख्य बिंदु:</strong> परिभाषा यहाँ.<br><br>व्याख्या के साथ <strong>महत्वपूर्ण शब्द</strong> हाइलाइट.<br><br>उदाहरण और अनुप्रयोग.", "marks": ${markers}}]` :
+      `Generate ${count} FINAL EXAM LEVEL questions worth ${markers} marks each.
+
+STRICT LANGUAGE RULE: ALL content must be in ENGLISH language ONLY.
 
 ANSWER FORMATTING REQUIREMENTS:
 - Use HTML formatting: <strong> for key points, <br> for line breaks
@@ -616,7 +645,7 @@ Answer length and structure based on marks:
 - 5 marks: 5-7 sentences with <strong>comprehensive analysis</strong>, multiple examples, and real-world applications
 
 Return ONLY valid JSON array:
-[{"question": "Question text", "answer": "<strong>Key Point:</strong> Definition here.<br><br>Explanation with <strong>important terms</strong> highlighted.<br><br>Examples and applications.", "marks": ${markers}}]
+[{"question": "Question text", "answer": "<strong>Key Point:</strong> Definition here.<br><br>Explanation with <strong>important terms</strong> highlighted.<br><br>Examples and applications.", "marks": ${markers}}]`}
 
 AVOID these questions: ${existingQuestionsString}${languageSpecificInstruction}
 TEXT: "${textContent.substring(0, 2000)}"`;
@@ -635,15 +664,32 @@ TEXT: "${textContent.substring(0, 2000)}"`;
   
   if (contentAnalysis.hasPractical) {
     // Generate theory questions
-    const theoryPrompt = `
-      Generate FINAL EXAM LEVEL theoretical questions based on the content. Return ONLY valid JSON:
+    const theoryPrompt = `${detectedLanguage === 'gujarati' ? 
+      `ગુજરાતી ભાષામાં સૈદ્ધાંતિક પ્રશ્નો બનાવો. માત્ર માન્ય JSON પરત કરો:
+      {
+        "oneMarker": [{"question": "[વિભાવના] ને વ્યાખ્યાયિત કરો", "answer": "<strong>વ્યાખ્યા:</strong> સ્પષ્ટ વ્યાખ્યા સાથે <strong>મુખ્ય શબ્દો</strong> પ્રકાશિત.", "marks": 1}],
+        "threeMarker": [{"question": "[વિભાવના] ને ફાયદાઓ સાથે સમજાવો", "answer": "<strong>સમજૂતી:</strong> વિગતવાર સમજૂતી.<br><br><strong>ફાયદાઓ:</strong><br>• મુદ્દો 1<br>• મુદ્દો 2", "marks": 3}],
+        "fourMarker": [{"question": "[વિભાવના A] વિ [વિભાવના B] ની તુલના કરો", "answer": "<strong>તુલના:</strong><br><br><strong>[વિભાવના A]:</strong> વિગતો<br><br><strong>[વિભાવના B]:</strong> વિગતો<br><br><strong>મુખ્ય તફાવતો:</strong> વિશ્લેષણ", "marks": 4}],
+        "fiveMarker": [{"question": "[વિભાવના] નું ઉપયોગો સાથે વિશ્લેષણ કરો", "answer": "<strong>વિશ્લેષણ:</strong> સંપૂર્ણ સમજૂતી.<br><br><strong>મુખ્ય લક્ષણો:</strong><br>• લક્ષણ 1<br>• લક્ષણ 2<br><br><strong>ઉપયોગો:</strong> વાસ્તવિક ઉદાહરણો", "marks": 5}]
+      }
+      આપેલ સામગ્રીમાંથી માત્ર સૈદ્ધાંતિક વિભાવનાઓ પર ધ્યાન આપો.` :
+      detectedLanguage === 'hindi' ? 
+      `हिंदी भाषा में सैद्धांतिक प्रश्न बनाएं। केवल मान्य JSON वापस करें:
+      {
+        "oneMarker": [{"question": "[अवधारणा] को परिभाषित करें", "answer": "<strong>परिभाषा:</strong> स्पष्ट परिभाषा के साथ <strong>मुख्य शब्द</strong> हाइलाइट।", "marks": 1}],
+        "threeMarker": [{"question": "[अवधारणा] को लाभों के साथ समझाएं", "answer": "<strong>व्याख्या:</strong> विस्तृत व्याख्या।<br><br><strong>लाभ:</strong><br>• बिंदु 1<br>• बिंदु 2", "marks": 3}],
+        "fourMarker": [{"question": "[अवधारणा A] बनाम [अवधारणा B] की तुलना करें", "answer": "<strong>तुलना:</strong><br><br><strong>[अवधारणा A]:</strong> विवरण<br><br><strong>[अवधारणा B]:</strong> विवरण<br><br><strong>मुख्य अंतर:</strong> विश्लेषण", "marks": 4}],
+        "fiveMarker": [{"question": "[अवधारणा] का अनुप्रयोगों के साथ विश्लेषण करें", "answer": "<strong>विश्लेषण:</strong> व्यापक व्याख्या।<br><br><strong>मुख्य विशेषताएं:</strong><br>• विशेषता 1<br>• विशेषता 2<br><br><strong>अनुप्रयोग:</strong> वास्तविक उदाहरण", "marks": 5}]
+      }
+      प्रदान की गई सामग्री से केवल सैद्धांतिक अवधारणाओं पर ध्यान दें।` :
+      `Generate FINAL EXAM LEVEL theoretical questions based on the content. Return ONLY valid JSON:
       {
         "oneMarker": [{"question": "Define [concept]", "answer": "<strong>Definition:</strong> Clear definition with <strong>key terms</strong> highlighted.", "marks": 1}],
         "threeMarker": [{"question": "Explain [concept] with advantages", "answer": "<strong>Explanation:</strong> Detailed explanation.<br><br><strong>Advantages:</strong><br>• Point 1<br>• Point 2", "marks": 3}],
         "fourMarker": [{"question": "Compare [concept A] vs [concept B]", "answer": "<strong>Comparison:</strong><br><br><strong>[Concept A]:</strong> Details<br><br><strong>[Concept B]:</strong> Details<br><br><strong>Key Differences:</strong> Analysis", "marks": 4}],
         "fiveMarker": [{"question": "Analyze [concept] with applications", "answer": "<strong>Analysis:</strong> Comprehensive explanation.<br><br><strong>Key Features:</strong><br>• Feature 1<br>• Feature 2<br><br><strong>Applications:</strong> Real-world examples", "marks": 5}]
       }
-      Focus ONLY on theoretical concepts from the provided content.
+      Focus ONLY on theoretical concepts from the provided content.`}${languageInstruction}
       TEXT: "${textContent.substring(0, 2000)}"`;
       
     // Generate practical questions based on content type
@@ -655,7 +701,7 @@ TEXT: "${textContent.substring(0, 2000)}"`;
         "fourMarker": [{"question": "Debug this code", "answer": "<strong>Errors Found:</strong><br>• Error 1<br>• Error 2<br><br><strong>Corrected Code:</strong><br><pre>fixed code</pre>", "marks": 4}],
         "fiveMarker": [{"question": "Design [system from content]", "answer": "<strong>Design:</strong> Strategy<br><br><strong>Implementation:</strong><br><pre>code</pre>", "marks": 5}]
       }
-      Generate coding questions based on the provided content only.
+      Generate coding questions based on the provided content only.${languageInstruction}
       TEXT: "${textContent.substring(0, 2000)}"` : `
       Generate practical questions based on the content (experiments, calculations, procedures). Return ONLY valid JSON:
       {
@@ -664,7 +710,7 @@ TEXT: "${textContent.substring(0, 2000)}"`;
         "fourMarker": [{"question": "Explain the experiment to [demonstrate concept from content]", "answer": "<strong>Aim:</strong> Purpose<br><br><strong>Procedure:</strong><br>1. Step 1<br>2. Step 2<br><br><strong>Observation:</strong> Results", "marks": 4}],
         "fiveMarker": [{"question": "Design an experiment to [verify principle from content]", "answer": "<strong>Aim:</strong> Purpose<br><br><strong>Materials:</strong> List<br><br><strong>Procedure:</strong> Steps<br><br><strong>Expected Results:</strong> Analysis", "marks": 5}]
       }
-      Generate practical questions (experiments, calculations, procedures) based ONLY on the provided content.
+      Generate practical questions (experiments, calculations, procedures) based ONLY on the provided content.${languageInstruction}
       TEXT: "${textContent.substring(0, 2000)}"`;
       
     const [theoryResponse, practicalResponse] = await Promise.all([
@@ -678,15 +724,32 @@ TEXT: "${textContent.substring(0, 2000)}"`;
     };
   } else {
     // Generate regular questions for non-code content
-    const prompt = `
-      Generate exam questions categorized by marks. Return ONLY valid JSON:
+    const prompt = `${detectedLanguage === 'gujarati' ? 
+      `ગુજરાતી ભાષામાં પરીક્ષા પ્રશ્નો બનાવો. માત્ર માન્ય JSON પરત કરો:
       {
         "oneMarker": [{"question": "...", "answer": "..."}],
         "threeMarker": [{"question": "...", "answer": "..."}],
         "fourMarker": [{"question": "...", "answer": "..."}],
         "fiveMarker": [{"question": "...", "answer": "..."}]
       }
-      Generate 2-3 questions per category.
+      દરેક કેટેગરીમાં 2-3 પ્રશ્નો બનાવો.` :
+      detectedLanguage === 'hindi' ? 
+      `हिंदी भाषा में परीक्षा प्रश्न बनाएं। केवल मान्य JSON वापस करें:
+      {
+        "oneMarker": [{"question": "...", "answer": "..."}],
+        "threeMarker": [{"question": "...", "answer": "..."}],
+        "fourMarker": [{"question": "...", "answer": "..."}],
+        "fiveMarker": [{"question": "...", "answer": "..."}]
+      }
+      प्रत्येक श्रेणी में 2-3 प्रश्न बनाएं।` :
+      `Generate exam questions categorized by marks. Return ONLY valid JSON:
+      {
+        "oneMarker": [{"question": "...", "answer": "..."}],
+        "threeMarker": [{"question": "...", "answer": "..."}],
+        "fourMarker": [{"question": "...", "answer": "..."}],
+        "fiveMarker": [{"question": "...", "answer": "..."}]
+      }
+      Generate 2-3 questions per category.`}${languageInstruction}
       TEXT: "${textContent.substring(0, 2000)}"`;
       
     const rawResponse = await generateContent(prompt);

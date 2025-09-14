@@ -50,7 +50,14 @@ const userSchema = mongoose.Schema(
       totalPoints: { type: Number, default: 0 },
       weeklyPoints: { type: Number, default: 0 },
       weeklyReset: { type: Date, default: Date.now }
-    }
+    },
+    pinnedQuestions: [{
+      subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject', required: true },
+      questionIndex: { type: Number, required: true },
+      category: { type: String, required: true }, // oneMarker, threeMarker, etc.
+      type: { type: String }, // theory, practical (optional for backward compatibility)
+      pinnedAt: { type: Date, default: Date.now }
+    }]
   },
   { timestamps: true }
 );

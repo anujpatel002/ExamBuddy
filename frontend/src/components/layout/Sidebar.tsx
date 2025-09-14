@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FiHome, FiUsers, FiLogOut, FiUser, FiStar, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiHome, FiUsers, FiLogOut, FiUser, FiStar, FiChevronLeft, FiChevronRight, FiBookmark } from 'react-icons/fi';
 import { useAuth } from '@/hooks/useAuth';
 import ThemeToggleButton from '../ui/ThemeToggleButton';
 import { useState } from 'react';
@@ -19,6 +19,7 @@ const Sidebar = ({ isOpen }: SidebarProps) => {
   const studentLinks = [
     { href: '/dashboard', label: 'Dashboard', icon: FiHome },
     { href: '/subjects', label: 'My Subjects', icon: FiStar },
+    { href: '/pinned-questions', label: 'Pinned Questions', icon: FiBookmark },
     { href: '/study-room', label: 'Study Rooms', icon: FiUsers },
     { href: '/pricing', label: 'Pricing', icon: FiStar },
     { href: '/profile', label: 'Profile', icon: FiUser },

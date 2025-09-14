@@ -52,11 +52,13 @@ interface INote {
 type ActiveTab = 'summary' | 'flashcards' | 'practice' | 'mcq' | 'mindmap' | 'chat';
 
 // Practice Question Card Component
-const PracticeQuestionCard = ({ question, index, activePracticeTab, questionCategories }: {
-  question: ICategorizedQuestion;
+const PracticeQuestionCard = ({ question, index, activePracticeTab, questionCategories, onPin, isPinned }: {
+  question: ICategorizedQuestion & { _id?: string; isPinned?: boolean };
   index: number;
   activePracticeTab: string;
   questionCategories: { key: string; label: string; }[];
+  onPin: (questionId: string, marker: string) => void;
+  isPinned?: boolean;
 }) => {
   const [showAnswer, setShowAnswer] = useState(false);
   
@@ -65,18 +67,30 @@ const PracticeQuestionCard = ({ question, index, activePracticeTab, questionCate
       <div className="bg-gray-50 dark:bg-gray-800/50 p-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                Question {index + 1}
-              </span>
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                activePracticeTab === 'oneMarker' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                activePracticeTab === 'threeMarker' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' :
-                activePracticeTab === 'fourMarker' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300' :
-                'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
-              }`}>
-                {questionCategories.find(c => c.key === activePracticeTab)?.label}
-              </span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                {isPinned && <span className="text-yellow-500">📌</span>}
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                  Question {index + 1}
+                </span>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  activePracticeTab === 'oneMarker' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
+                  activePracticeTab === 'threeMarker' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' :
+                  activePracticeTab === 'fourMarker' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300' :
+                  'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
+                }`}>
+                  {questionCategories.find(c => c.key === activePracticeTab)?.label}
+                </span>
+              </div>
+              <button
+                onClick={() => onPin(question._id || `${index}`, activePracticeTab)}
+                className={`p-1 rounded transition-colors ${
+                  isPinned ? 'text-yellow-500 hover:text-yellow-600' : 'text-gray-400 hover:text-gray-600'
+                }`}
+                title={isPinned ? 'Unpin question' : 'Pin question'}
+              >
+                📌
+              </button>
             </div>
             <h4 className="font-medium text-gray-900 dark:text-gray-100 leading-relaxed mb-3">{question.question}</h4>
             
@@ -198,6 +212,7 @@ export default function NoteDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [aiProgress, setAiProgress] = useState({ message: '', progress: 0 });
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [pinnedQuestions, setPinnedQuestions] = useState<{[key: string]: string[]}>({});
 
   // Detect theme changes
   useEffect(() => {
@@ -564,6 +579,25 @@ export default function NoteDetailPage() {
     }
   };
 
+  const handlePinQuestion = (questionId: string, marker: string) => {
+    setPinnedQuestions(prev => {
+      const markerPinned = prev[marker] || [];
+      const isCurrentlyPinned = markerPinned.includes(questionId);
+      
+      if (isCurrentlyPinned) {
+        return {
+          ...prev,
+          [marker]: markerPinned.filter(id => id !== questionId)
+        };
+      } else {
+        return {
+          ...prev,
+          [marker]: [...markerPinned, questionId]
+        };
+      }
+    });
+  };
+
   if (loading) return <div className="flex justify-center items-center h-full"><Spinner /></div>;
   if (!note) return <p>Note not found.</p>;
 
@@ -909,15 +943,33 @@ export default function NoteDetailPage() {
                         return <div className="text-center py-8 text-gray-500">No questions found for {activePracticeTab}</div>;
                       }
                       
-                      return questionsToShow.map((q: any, index: number) => (
-                        <PracticeQuestionCard 
-                          key={startIndex + index} 
-                          question={q} 
-                          index={startIndex + index} 
-                          activePracticeTab={activePracticeTab}
-                          questionCategories={questionCategories}
-                        />
-                      ));
+                      // Sort questions to show pinned ones first
+                      const pinnedIds = pinnedQuestions[activePracticeTab] || [];
+                      const sortedQuestions = questionsToShow.sort((a, b) => {
+                        const aId = a._id || `${questionsToShow.indexOf(a)}`;
+                        const bId = b._id || `${questionsToShow.indexOf(b)}`;
+                        const aPinned = pinnedIds.includes(aId);
+                        const bPinned = pinnedIds.includes(bId);
+                        if (aPinned && !bPinned) return -1;
+                        if (!aPinned && bPinned) return 1;
+                        return 0;
+                      });
+                      
+                      return sortedQuestions.map((q: any, index: number) => {
+                        const questionId = q._id || `${allQuestions.indexOf(q)}`;
+                        const isPinned = pinnedIds.includes(questionId);
+                        return (
+                          <PracticeQuestionCard 
+                            key={questionId} 
+                            question={{...q, _id: questionId}} 
+                            index={index} 
+                            activePracticeTab={activePracticeTab}
+                            questionCategories={questionCategories}
+                            onPin={handlePinQuestion}
+                            isPinned={isPinned}
+                          />
+                        );
+                      });
                     })()}
                   </div>
                   
@@ -1099,7 +1151,7 @@ export default function NoteDetailPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-4">
         <button 
-          onClick={() => router.push('/dashboard')} 
+          onClick={() => router.back()} 
           className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
           aria-label="Go back"
         >

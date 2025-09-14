@@ -27,6 +27,7 @@ import doubtSolverRoutes from './routes/doubtSolverRoutes.js';
 import gamificationRoutes from './routes/gamificationRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
 import ocrRoutes from './routes/ocrRoutes.js';
+import pinnedQuestionsRoutes from './routes/pinnedQuestionsRoutes.js';
 import securityHeaders from './middleware/securityHeaders.js'; 
 
 connectDB();
@@ -97,6 +98,7 @@ app.use('/api/study-rooms', studyRoomRoutes);
 app.use('/api/doubt-solver', doubtSolverRoutes);
 app.use('/api/gamification', gamificationRoutes);
 app.use('/api/ocr', ocrRoutes);
+app.use('/api/pinned-questions', pinnedQuestionsRoutes);
 app.use('/api', healthRoutes);
 
 // --- Error Handling ---

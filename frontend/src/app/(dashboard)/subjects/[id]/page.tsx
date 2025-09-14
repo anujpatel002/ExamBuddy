@@ -11,7 +11,7 @@ import { sanitizeHTML } from '@/utils/sanitizer';
 import NoteCard from '@/components/notes/NoteCard';
 import UploadNoteModal from '@/components/notes/UploadNoteModal';
 import Button from '@/components/ui/Button';
-import { FiArrowLeft, FiEdit, FiTrash2, FiCheckSquare, FiX, FiBook, FiTarget, FiCalendar, FiColumns, FiEye } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit, FiTrash2, FiCheckSquare, FiX, FiBook, FiTarget, FiCalendar, FiColumns, FiEye, FiBookmark } from 'react-icons/fi';
 import DeleteConfirmationModal from '@/components/ui/DeleteConfirmationModal';
 import EditModal from '@/components/ui/EditModal';
 import Link from 'next/link';
@@ -21,8 +21,38 @@ interface Note { _id: string; title: string; createdAt: string; status: 'approve
 interface Subject { _id: string; name: string; questionBank: any[]; studyPlan?: any }
 
 // Q-Bank Question Card Component
-const QBankQuestionCard = ({ question, index }: { question: any; index: number }) => {
+const QBankQuestionCard = ({ question, index, subjectId, category, type, isPinned, onPinToggle }: { 
+  question: any; 
+  index: number; 
+  subjectId: string; 
+  category: string; 
+  type?: string; 
+  isPinned?: boolean;
+  onPinToggle?: (pinned: boolean) => void;
+}) => {
   const [showAnswer, setShowAnswer] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
+  
+  const handlePinToggle = async () => {
+    if (!onPinToggle) return;
+    
+    setIsToggling(true);
+    try {
+      const endpoint = isPinned ? '/pinned-questions/unpin' : '/pinned-questions/pin';
+      await api.post(endpoint, {
+        subjectId,
+        questionIndex: index,
+        category,
+        type
+      });
+      onPinToggle(!isPinned);
+      toast.success(isPinned ? 'Question unpinned' : 'Question pinned');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to toggle pin');
+    } finally {
+      setIsToggling(false);
+    }
+  };
   
   return (
     <div className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-all duration-300 ${showAnswer ? 'shadow-lg' : ''}`}>
@@ -70,10 +100,10 @@ const QBankQuestionCard = ({ question, index }: { question: any; index: number }
               </div>
             )}
             
-            <div className="mt-4">
+            <div className="mt-4 flex flex-col sm:flex-row gap-2">
               <button
                 onClick={() => setShowAnswer(!showAnswer)}
-                className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 w-full sm:w-auto ${
+                className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex-1 sm:flex-none ${
                   showAnswer 
                     ? 'bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/50 dark:hover:bg-green-900/70 dark:text-green-300'
                     : 'bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/50 dark:hover:bg-blue-900/70 dark:text-blue-300'
@@ -81,6 +111,19 @@ const QBankQuestionCard = ({ question, index }: { question: any; index: number }
               >
                 {showAnswer ? '👁️ Hide' : '👀 Show'}
               </button>
+              {onPinToggle && (
+                <button
+                  onClick={handlePinToggle}
+                  disabled={isToggling}
+                  className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex-1 sm:flex-none ${
+                    isPinned
+                      ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700 dark:bg-yellow-900/50 dark:hover:bg-yellow-900/70 dark:text-yellow-300'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300'
+                  } ${isToggling ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {isToggling ? '⏳' : isPinned ? '📌 Pinned' : '📌 Pin'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -113,6 +156,7 @@ export default function SubjectDetailPage() {
   const [activeQBankType, setActiveQBankType] = useState('theory');
   const [qbankProgress, setQbankProgress] = useState({ message: '', progress: 0 });
   const [subjectQuizzes, setSubjectQuizzes] = useState<any[]>([]);
+  const [pinnedQuestions, setPinnedQuestions] = useState<any[]>([]);
 
   const fetchSubjectDetails = async () => {
     if (!subjectId) return;
@@ -129,6 +173,10 @@ export default function SubjectDetailPage() {
       const quizRes = await api.get('/quizzes/my');
       const allSubjectQuizzes = quizRes.data.filter((quiz: any) => quiz.subject?._id === subjectId);
       setSubjectQuizzes(allSubjectQuizzes);
+      
+      // Fetch pinned questions for this subject
+      const pinnedRes = await api.get(`/pinned-questions/${subjectId}`);
+      setPinnedQuestions(pinnedRes.data.pinnedQuestions);
     } catch (error) {
       toast.error('Failed to fetch subject details.');
     } finally {
@@ -284,6 +332,14 @@ export default function SubjectDetailPage() {
           </button>
           <button onClick={() => setActiveTab('examcreator')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'examcreator' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             🎯 Exam
+          </button>
+          <button onClick={() => setActiveTab('pinned')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'pinned' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            📌 Pinned
+            {pinnedQuestions.length > 0 && (
+              <span className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 text-xs px-2 py-0.5 rounded-full">
+                {pinnedQuestions.length}
+              </span>
+            )}
           </button>
         </nav>
       </div>
@@ -551,9 +607,42 @@ export default function SubjectDetailPage() {
                 <div className="space-y-3 sm:space-y-4">
                   {(() => {
                     const currentBank = (subject.questionBank.theory || subject.questionBank.practical) ? subject.questionBank[activeQBankType] : subject.questionBank;
-                    return currentBank?.[activeQBankTab]?.map((q: any, index: number) => (
-                      <QBankQuestionCard key={index} question={q} index={index} />
-                    ));
+                    return currentBank?.[activeQBankTab]?.map((q: any, index: number) => {
+                      const isPinned = pinnedQuestions.some(
+                        pin => pin.questionIndex === index && 
+                               pin.category === activeQBankTab && 
+                               pin.type === ((subject.questionBank.theory || subject.questionBank.practical) ? activeQBankType : undefined)
+                      );
+                      
+                      return (
+                        <QBankQuestionCard 
+                          key={index} 
+                          question={q} 
+                          index={index}
+                          subjectId={subjectId as string}
+                          category={activeQBankTab}
+                          type={(subject.questionBank.theory || subject.questionBank.practical) ? activeQBankType : undefined}
+                          isPinned={isPinned}
+                          onPinToggle={(pinned) => {
+                            if (pinned) {
+                              setPinnedQuestions(prev => [...prev, {
+                                subjectId,
+                                questionIndex: index,
+                                category: activeQBankTab,
+                                type: (subject.questionBank.theory || subject.questionBank.practical) ? activeQBankType : undefined,
+                                questionData: q
+                              }]);
+                            } else {
+                              setPinnedQuestions(prev => prev.filter(
+                                pin => !(pin.questionIndex === index && 
+                                         pin.category === activeQBankTab && 
+                                         pin.type === ((subject.questionBank.theory || subject.questionBank.practical) ? activeQBankType : undefined))
+                              ));
+                            }
+                          }}
+                        />
+                      );
+                    });
                   })()}
                 </div>
                 
@@ -1099,6 +1188,108 @@ export default function SubjectDetailPage() {
             >
               🎯 Generate Exam Paper
             </Button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'pinned' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+          <div className="bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 p-3 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col gap-4">
+              <div>
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Pinned Questions</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Your saved questions for quick practice</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="bg-white dark:bg-gray-800 px-3 py-1 rounded-full border text-sm text-gray-500 dark:text-gray-400 w-fit">
+                  {pinnedQuestions.length} Pinned Questions
+                </span>
+                {pinnedQuestions.length > 0 && (
+                  <Button 
+                    onClick={async () => {
+                      if (!confirm('Clear all pinned questions? This action cannot be undone.')) return;
+                      
+                      try {
+                        // Unpin all questions
+                        for (const pin of pinnedQuestions) {
+                          await api.post('/pinned-questions/unpin', {
+                            subjectId: pin.subjectId,
+                            questionIndex: pin.questionIndex,
+                            category: pin.category,
+                            type: pin.type
+                          });
+                        }
+                        setPinnedQuestions([]);
+                        toast.success('All pinned questions cleared!');
+                      } catch (error: any) {
+                        toast.error('Failed to clear pinned questions.');
+                      }
+                    }}
+                    variant="secondary"
+                    size="sm"
+                    className="text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/50"
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3 sm:p-6">
+            {pinnedQuestions.length > 0 ? (
+              <div className="space-y-3 sm:space-y-4">
+                {pinnedQuestions.map((pin, index) => (
+                  <div key={`${pin.subjectId}-${pin.questionIndex}-${pin.category}-${pin.type}`} className="border border-yellow-200 dark:border-yellow-700 rounded-lg overflow-hidden">
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 p-2 border-b border-yellow-200 dark:border-yellow-700">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300">
+                          📌 Pinned
+                        </span>
+                        <span className="text-gray-600 dark:text-gray-400">
+                          {pin.category.replace('Marker', ' Marker')} • {pin.type ? pin.type.charAt(0).toUpperCase() + pin.type.slice(1) : 'General'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="p-1">
+                      <QBankQuestionCard 
+                        question={pin.questionData}
+                        index={pin.questionIndex}
+                        subjectId={subjectId as string}
+                        category={pin.category}
+                        type={pin.type}
+                        isPinned={true}
+                        onPinToggle={(pinned) => {
+                          if (!pinned) {
+                            setPinnedQuestions(prev => prev.filter(
+                              p => !(p.questionIndex === pin.questionIndex && 
+                                     p.category === pin.category && 
+                                     p.type === pin.type)
+                            ));
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  📌
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">No Pinned Questions</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                  Pin important questions from the Q-Bank to create your personalized practice collection.
+                </p>
+                <Button 
+                  onClick={() => setActiveTab('qbank')}
+                  className="bg-gradient-to-r from-yellow-600 to-amber-600 hover:from-yellow-700 hover:to-amber-700"
+                >
+                  Go to Q-Bank
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}

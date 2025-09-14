@@ -89,6 +89,21 @@ export default function FileUploadModal(props: FileUploadModalProps) {
         
         <div>
           <label className="block text-sm font-medium mb-2">File</label>
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-3">
+            <p className="text-amber-800 dark:text-amber-200 text-sm mb-2">
+              <strong>📄 Non-English PDF with Images?</strong> Convert to HTML first for better text extraction.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => window.open('https://pdf-to-text-ten.vercel.app/', '_blank')}
+              className="text-xs"
+            >
+              <FiExternalLink className="mr-1 w-3 h-3" />
+              Convert PDF to HTML
+            </Button>
+          </div>
           {showPdfConverter && (
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-3">
               <p className="text-blue-800 dark:text-blue-200 text-sm mb-3">
