@@ -95,10 +95,10 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
                 This PDF contains images and cannot be processed directly.
               </p>
               <p className="text-green-600 dark:text-green-400 text-sm mb-3">
-                <strong>Mobile users:</strong> Save your content as DOCX format instead - it works better with Gujarati text on mobile.
+                <strong>Mobile users:</strong> Save your content as RTF format instead - it works better with Gujarati text on mobile.
               </p>
               <p className="text-blue-800 dark:text-blue-200 text-sm mb-3">
-                Or use PDF converter (downloads as TXT or DOCX):
+                Or use PDF converter (downloads as TXT or RTF):
               </p>
               <Button
                 type="button"

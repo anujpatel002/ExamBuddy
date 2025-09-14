@@ -143,24 +143,14 @@ downloadTxt.addEventListener('click', () => {
 });
 
 downloadDocx.addEventListener('click', () => {
-    // Create a simple DOCX structure
-    const docxContent = `
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-    <w:body>
-        <w:p>
-            <w:r>
-                <w:t>${extractedText.replace(/\n/g, '</w:t></w:r></w:p><w:p><w:r><w:t>')}</w:t>
-            </w:r>
-        </w:p>
-    </w:body>
-</w:document>`;
+    // Create RTF format which opens in Word
+    const rtfContent = `{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}} \\f0\\fs24 ${extractedText.replace(/\n/g, '\\par ')}}`;
     
-    const blob = new Blob([docxContent], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    const blob = new Blob([rtfContent], { type: 'application/rtf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = selectedFile.name.replace('.pdf', '_extracted.docx');
+    a.download = selectedFile.name.replace('.pdf', '_extracted.rtf');
     a.click();
     URL.revokeObjectURL(url);
 });
