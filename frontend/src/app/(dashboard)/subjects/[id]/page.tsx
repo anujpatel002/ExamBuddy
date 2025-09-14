@@ -154,26 +154,7 @@ export default function SubjectDetailPage() {
     }
   }, [subjectId]);
   
-  // Refetch data when returning to the page
-  useEffect(() => {
-    const handleFocus = () => {
-      fetchSubjectDetails();
-    };
-    
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        fetchSubjectDetails();
-      }
-    };
-    
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [subjectId]);
+
 
   useEffect(() => {
     if (subject?.questionBank) {
@@ -1120,6 +1101,7 @@ export default function SubjectDetailPage() {
       )}
       
       <UploadNoteModal 
+        key={isUploadModalOpen ? 'open' : 'closed'}
         isOpen={isUploadModalOpen} 
         onClose={() => setUploadModalOpen(false)} 
         onNoteUploaded={fetchSubjectDetails} 

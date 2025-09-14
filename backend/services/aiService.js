@@ -586,8 +586,16 @@ export const generateMarkBasedQuestions = async (textContent, markers = null, ex
   const languageInstruction = getLanguageInstruction(detectedLanguage);
   
   if (markers) {
+    const languageSpecificInstruction = detectedLanguage === 'gujarati' ? 
+      '\n\nઅત્યંત મહત્વપૂર્ણ: બધા પ્રશ્નો અને જવાબો સંપૂર્ણ ગુજરાતી ભાષામાં જ લખો. કોઈ પણ અંગ્રેજી શબ્દોનો ઉપયોગ કરશો નહીં. ઇનપુટ કન્ટેન્ટની ભાષા જાળવી રાખો.' :
+      detectedLanguage === 'hindi' ? 
+      '\n\nअत्यंत महत्वपूर्ण: सभी प्रश्न और उत्तर पूर्ण हिंदी भाषा में ही लिखें। कोई भी अंग्रेजी शब्दों का उपयोग न करें। इनपुट कंटेंट की भाषा को बनाए रखें।' :
+      '';
+      
     const prompt = `
 Generate ${count} FINAL EXAM LEVEL questions worth ${markers} marks each.
+
+LANGUAGE REQUIREMENT: Generate questions and answers in the SAME LANGUAGE as the input text. If input is in Gujarati, generate PURE Gujarati questions. If input is in Hindi, generate PURE Hindi questions.
 
 ANSWER FORMATTING REQUIREMENTS:
 - Use HTML formatting: <strong> for key points, <br> for line breaks
@@ -603,7 +611,7 @@ Answer length and structure based on marks:
 Return ONLY valid JSON array:
 [{"question": "Question text", "answer": "<strong>Key Point:</strong> Definition here.<br><br>Explanation with <strong>important terms</strong> highlighted.<br><br>Examples and applications.", "marks": ${markers}}]
 
-AVOID these questions: ${existingQuestionsString}${languageInstruction}
+AVOID these questions: ${existingQuestionsString}${languageSpecificInstruction}
 TEXT: "${textContent.substring(0, 2000)}"`;
     
     const rawResponse = await generateContent(prompt);
@@ -1026,46 +1034,17 @@ ACTUAL TEXT CONTENT: "${textContent.substring(0, 4000)}"`;
         };
       }
     } else {
-      // Generate regular flashcards for non-code content
+      // Generate regular flashcards for non-code content - treat all languages the same
       const cardCount = requestCount || 10;
       const detectedLanguage = detectLanguage(textContent);
       const languageInstruction = getLanguageInstruction(detectedLanguage);
       
-      // Check if we have meaningful content
-      if (!textContent || textContent.trim().length < 100) {
-        console.log('Insufficient text content for flashcard generation');
-        return { theory: [], practical: [] };
-      }
-      
-      // Check for corrupted text extraction (but not guidance messages)
-      const corruptionSigns = [
-        /^[0-9\s\(\):\-]+$/, // Only numbers and punctuation
-        /[A-Za-z]{1}[^\s]{10,}/, // Random character sequences
-        /^[^\u0900-\u097F\u0A80-\u0AFF\w\s]{5,}/ // Non-readable characters
-      ];
-      
-      const isGuidanceMessage = textContent.includes('Please save your file') || textContent.includes('format detected') || textContent === 'IMAGE_BASED_PDF_DETECTED';
-      const isCorrupted = !isGuidanceMessage && corruptionSigns.some(pattern => pattern.test(textContent.substring(0, 200)));
-      
-      if (isCorrupted) {
-        console.log('Detected corrupted text extraction, skipping flashcard generation');
-        return { theory: [], practical: [] };
-      }
-      
-      const prompt = `Generate EXACTLY ${cardCount} flashcards based STRICTLY on the provided text content. You MUST:
-
-1. Use ONLY information from the provided text
-2. Generate questions and answers in the SAME LANGUAGE as the input text
-3. Focus on key concepts, definitions, and important facts from the text
-4. Return exactly ${cardCount} flashcards, no more, no less
-5. If text is in Gujarati script, generate Gujarati flashcards
-6. If text is in Hindi script, generate Hindi flashcards
-7. If no meaningful content is found, return an empty array
+      const prompt = `Generate EXACTLY ${cardCount} flashcards based STRICTLY on the provided text content.
 
 Return ONLY a JSON array with exactly ${cardCount} objects:
 [{"question": "Question from the text", "answer": "Answer from the text"}]
 
-IMPORTANT: Generate flashcards in the same language as the input text.${languageInstruction}
+Generate flashcards in the same language as the input text.${languageInstruction}
 
 TEXT CONTENT: "${textContent.substring(0, 4000)}"`
       

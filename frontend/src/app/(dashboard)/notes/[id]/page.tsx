@@ -431,26 +431,7 @@ export default function NoteDetailPage() {
     fetchNoteAndQuizzes();
   }, [noteId]);
   
-  // Refetch data when returning to the page
-  useEffect(() => {
-    const handleFocus = () => {
-      fetchNoteAndQuizzes();
-    };
-    
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        fetchNoteAndQuizzes();
-      }
-    };
-    
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [noteId]);
+
   
   // Set default active types when data loads
   useEffect(() => {
@@ -536,8 +517,33 @@ export default function NoteDetailPage() {
       const response = await api.post(endpoint, payload);
       console.log(`${type} generation response:`, response.data);
       
-      // Always refresh from server to ensure data consistency
-      await fetchNoteAndQuizzes();
+      // Update state directly with response data
+      if (response.data) {
+        setNote(prevNote => {
+          if (!prevNote) return prevNote;
+          const updatedNote = { ...prevNote };
+          
+          if (type === 'summary' && response.data.summary) {
+            updatedNote.summary = response.data.summary;
+          } else if (type === 'flashcards') {
+            // Handle flashcards response
+            if (response.data.flashcards) {
+              updatedNote.flashcards = response.data.flashcards;
+            }
+          } else if (type === 'categorized') {
+            // Handle categorized questions response
+            if (response.data.categorizedQuestions) {
+              updatedNote.categorizedQuestions = response.data.categorizedQuestions;
+            } else if (response.data.practiceQuestions) {
+              updatedNote.categorizedQuestions = response.data.practiceQuestions;
+            }
+          } else if (type === 'mindmap' && response.data.mindMap) {
+            updatedNote.mindMap = response.data.mindMap;
+          }
+          
+          return updatedNote;
+        });
+      }
       
       toast.success(`Content generated successfully!`);
       await refreshUser(); // Refresh user data to update credits

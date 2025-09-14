@@ -108,34 +108,37 @@ const createFlashcards = asyncHandler(async (req, res) => {
     
     let usedExisting = false;
     
-    if (type === 'theory') {
-        usedExisting = showFromExisting('theory');
-    } else if (type === 'practical') {
-        usedExisting = showFromExisting('practical');
-    } else if (!type) {
-        // Initial load - show first 5 from each type if available
+    // Only check existing cards for initial load, always generate new for specific type requests
+    if (!type) {
         const theoryUsed = showFromExisting('theory');
         const practicalUsed = showFromExisting('practical');
         usedExisting = theoryUsed || practicalUsed;
     }
     
     console.log('Used existing flashcards:', usedExisting);
+    console.log('Forcing new generation for type:', type);
     
-    // Only generate new flashcards if we didn't use existing ones
-    if (!usedExisting) {
+    // Always generate new flashcards when type is specified (user clicked Generate More)
+    if (!usedExisting || type) {
         const existingQuestions = [];
         if (note.flashcards.allGenerated.theory) existingQuestions.push(...note.flashcards.allGenerated.theory.map(fc => fc.question));
         if (note.flashcards.allGenerated.practical) existingQuestions.push(...note.flashcards.allGenerated.practical.map(fc => fc.question));
         
         try {
             const newFlashcards = await generateFlashcards(note.textContent, 0, type, existingQuestions, 10);
+            console.log('Generated flashcards structure:', { 
+                hasTheory: !!newFlashcards?.theory, 
+                theoryLength: newFlashcards?.theory?.length || 0,
+                hasPractical: !!newFlashcards?.practical,
+                practicalLength: newFlashcards?.practical?.length || 0
+            });
             
             const isUniqueQuestion = (newQuestion, existingCards) => {
-                const normalizeQuestion = (q) => q.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+                const normalizeQuestion = (q) => q.toLowerCase().replace(/[^\w\s]/g, '').trim();
                 const newQ = normalizeQuestion(newQuestion);
                 return !existingCards.some(card => {
                     const existingQ = normalizeQuestion(card.question);
-                    return existingQ === newQ;
+                    return existingQ === newQ || newQ.includes(existingQ) || existingQ.includes(newQ);
                 });
             };
             
@@ -144,42 +147,67 @@ const createFlashcards = asyncHandler(async (req, res) => {
                 const uniqueTheory = newFlashcards.theory.filter(card => 
                     isUniqueQuestion(card.question, allExisting)
                 );
-                note.flashcards.allGenerated.theory = [...allExisting, ...uniqueTheory];
-                const cardsToShow = uniqueTheory.slice(0, 5);
-                note.flashcards.theory = [...(note.flashcards.theory || []), ...cardsToShow];
-                note.flashcards.displayedCount.theory = (note.flashcards.displayedCount.theory || 0) + cardsToShow.length;
+                if (uniqueTheory.length > 0) {
+                    note.flashcards.allGenerated.theory = [...allExisting, ...uniqueTheory];
+                    const cardsToShow = uniqueTheory.slice(0, 5);
+                    note.flashcards.theory = [...(note.flashcards.theory || []), ...cardsToShow];
+                    note.flashcards.displayedCount.theory = (note.flashcards.displayedCount.theory || 0) + cardsToShow.length;
+                    console.log(`Added ${uniqueTheory.length} new theory flashcards, showing ${cardsToShow.length}`);
+                }
             } else if (type === 'practical' && newFlashcards?.practical) {
                 const allExisting = note.flashcards.allGenerated.practical || [];
                 const uniquePractical = newFlashcards.practical.filter(card => 
                     isUniqueQuestion(card.question, allExisting)
                 );
-                note.flashcards.allGenerated.practical = [...allExisting, ...uniquePractical];
-                const cardsToShow = uniquePractical.slice(0, 5);
-                note.flashcards.practical = [...(note.flashcards.practical || []), ...cardsToShow];
-                note.flashcards.displayedCount.practical = (note.flashcards.displayedCount.practical || 0) + cardsToShow.length;
+                if (uniquePractical.length > 0) {
+                    note.flashcards.allGenerated.practical = [...allExisting, ...uniquePractical];
+                    const cardsToShow = uniquePractical.slice(0, 5);
+                    note.flashcards.practical = [...(note.flashcards.practical || []), ...cardsToShow];
+                    note.flashcards.displayedCount.practical = (note.flashcards.displayedCount.practical || 0) + cardsToShow.length;
+                    console.log(`Added ${uniquePractical.length} new practical flashcards, showing ${cardsToShow.length}`);
+                }
             } else if (!type && newFlashcards) {
-                // Initial generation
-                const allExistingTheory = note.flashcards.allGenerated.theory || [];
-                const allExistingPractical = note.flashcards.allGenerated.practical || [];
-                
-                const uniqueTheory = (newFlashcards?.theory || []).filter(card => 
-                    isUniqueQuestion(card.question, allExistingTheory)
-                );
-                const uniquePractical = (newFlashcards?.practical || []).filter(card => 
-                    isUniqueQuestion(card.question, allExistingPractical)
-                );
-                
-                note.flashcards.allGenerated.theory = [...allExistingTheory, ...uniqueTheory];
-                note.flashcards.allGenerated.practical = [...allExistingPractical, ...uniquePractical];
-                
-                const theoryToShow = uniqueTheory.slice(0, 5);
-                const practicalToShow = uniquePractical.slice(0, 5);
-                
-                note.flashcards.theory = theoryToShow;
-                note.flashcards.practical = practicalToShow;
-                note.flashcards.displayedCount.theory = theoryToShow.length;
-                note.flashcards.displayedCount.practical = practicalToShow.length;
-                console.log('Initial generation completed - Theory:', theoryToShow.length, 'Practical:', practicalToShow.length);
+                // Handle both code and non-code content
+                if (newFlashcards.theory || newFlashcards.practical) {
+                    // Code content with theory/practical structure
+                    const allExistingTheory = note.flashcards.allGenerated.theory || [];
+                    const allExistingPractical = note.flashcards.allGenerated.practical || [];
+                    
+                    const uniqueTheory = (newFlashcards?.theory || []).filter(card => 
+                        isUniqueQuestion(card.question, allExistingTheory)
+                    );
+                    const uniquePractical = (newFlashcards?.practical || []).filter(card => 
+                        isUniqueQuestion(card.question, allExistingPractical)
+                    );
+                    
+                    if (uniqueTheory.length > 0) {
+                        note.flashcards.allGenerated.theory = [...allExistingTheory, ...uniqueTheory];
+                        const theoryToShow = uniqueTheory.slice(0, 5);
+                        note.flashcards.theory = theoryToShow;
+                        note.flashcards.displayedCount.theory = theoryToShow.length;
+                    }
+                    if (uniquePractical.length > 0) {
+                        note.flashcards.allGenerated.practical = [...allExistingPractical, ...uniquePractical];
+                        const practicalToShow = uniquePractical.slice(0, 5);
+                        note.flashcards.practical = practicalToShow;
+                        note.flashcards.displayedCount.practical = practicalToShow.length;
+                    }
+                    console.log('Code content generation - Theory:', uniqueTheory.length, 'Practical:', uniquePractical.length);
+                } else if (Array.isArray(newFlashcards.theory)) {
+                    // Non-code content - flashcards returned as theory array
+                    const allExistingTheory = note.flashcards.allGenerated.theory || [];
+                    const uniqueTheory = newFlashcards.theory.filter(card => 
+                        isUniqueQuestion(card.question, allExistingTheory)
+                    );
+                    
+                    if (uniqueTheory.length > 0) {
+                        note.flashcards.allGenerated.theory = [...allExistingTheory, ...uniqueTheory];
+                        const theoryToShow = uniqueTheory.slice(0, 5);
+                        note.flashcards.theory = theoryToShow;
+                        note.flashcards.displayedCount.theory = theoryToShow.length;
+                        console.log(`Non-code content: Added ${uniqueTheory.length} flashcards, showing ${theoryToShow.length}`);
+                    }
+                }
             }
             
             // Only count credit for AI generation, not loading from DB
