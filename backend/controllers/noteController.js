@@ -9,6 +9,15 @@ import { updateStreak, addPoints } from '../utils/gamification.js';
 import { getPlanLimits } from '../middleware/planLimits.js';
 
 const uploadNote = asyncHandler(async (req, res) => {
+  console.log('=== UPLOAD DEBUG START ===');
+  console.log('Request body:', req.body);
+  console.log('File info:', req.file ? {
+    originalname: req.file.originalname,
+    mimetype: req.file.mimetype,
+    size: req.file.size,
+    encoding: req.file.encoding
+  } : 'No file');
+  
   const { title, subjectId } = req.body;
   const user = await User.findById(req.user._id);
   
@@ -34,7 +43,9 @@ const uploadNote = asyncHandler(async (req, res) => {
     const fileHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
     const existingNote = await Note.findOne({ fileHash });
     
-    let fileUrl = `/uploads/${file.originalname}`;
+    // Handle Unicode filenames by creating a safe filename
+    const safeFileName = Buffer.from(file.originalname, 'utf8').toString('base64').substring(0, 50) + '_' + Date.now() + '.pdf';
+    let fileUrl = `/uploads/${safeFileName}`;
     let isDuplicate = false;
 
     if (existingNote) {
@@ -42,7 +53,14 @@ const uploadNote = asyncHandler(async (req, res) => {
       isDuplicate = true;
     }
 
+    console.log('Extracting text from file:', file.originalname, 'Size:', file.size, 'Type:', file.mimetype);
     const textContent = await extractTextFromFile(file);
+    console.log('Text extraction result length:', textContent?.length || 0);
+    
+    // Validate text content for multi-language support
+    if (!textContent || textContent.trim().length === 0) {
+      console.warn('No text content extracted from file');
+    }
     
     const note = new Note({
       title, subject: subjectId, user: req.user._id, fileUrl,
@@ -71,9 +89,21 @@ const uploadNote = asyncHandler(async (req, res) => {
         
     res.status(201).json(createdNote);
   } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500);
-    throw new Error(`Upload failed: ${error.message}`);
+    console.error('=== UPLOAD ERROR ===');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('File details:', file ? {
+      originalname: file.originalname,
+      size: file.size,
+      mimetype: file.mimetype
+    } : 'No file');
+    console.error('Request body:', req.body);
+    console.error('=== END UPLOAD ERROR ===');
+    
+    res.status(500).json({
+      message: `Upload failed: ${error.message}`,
+      details: error.stack
+    });
   }
 });
 

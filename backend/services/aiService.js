@@ -97,7 +97,7 @@ const cleanAndParseJson = (rawResponse) => {
     // Strategy 1: Direct parse
     () => JSON.parse(rawResponse),
     
-    // Strategy 2: Remove markdown and HTML entities, then parse
+    // Strategy 2: Clean markdown and fix JSON structure
     () => {
       let cleaned = rawResponse
         .replace(/```json\s*|```\s*/g, '')
@@ -105,7 +105,20 @@ const cleanAndParseJson = (rawResponse) => {
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
+        .replace(/\n\s*/g, ' ')
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']')
         .trim();
+      
+      // Fix incomplete JSON by finding the last complete object
+      const lastCompleteObject = cleaned.lastIndexOf('}');
+      if (lastCompleteObject > 0) {
+        cleaned = cleaned.substring(0, lastCompleteObject + 1);
+        if (!cleaned.endsWith(']')) {
+          cleaned += ']';
+        }
+      }
+      
       return JSON.parse(cleaned);
     },
     
@@ -176,31 +189,34 @@ const cleanAndParseJson = (rawResponse) => {
       return JSON.parse(jsonString);
     },
     
-    // Strategy 5: Extract question-answer pairs manually
+    // Strategy 5: Extract question-answer pairs manually with Unicode support
     () => {
       const questions = [];
-      const questionRegex = /["']question["']\s*:\s*["']([^"']+)["']/gi;
-      const answerRegex = /["']answer["']\s*:\s*["']([^"']+)["']/gi;
+      // More flexible regex for Unicode text
+      const questionRegex = /["']question["']\s*:\s*["']([^"']*?)["']/gis;
+      const answerRegex = /["']answer["']\s*:\s*["']([^"']*?)["']/gis;
       
       let questionMatch, answerMatch;
       const questionMatches = [];
       const answerMatches = [];
       
       while ((questionMatch = questionRegex.exec(rawResponse)) !== null) {
-        questionMatches.push(questionMatch[1]);
+        questionMatches.push(questionMatch[1].trim());
       }
       
       while ((answerMatch = answerRegex.exec(rawResponse)) !== null) {
-        answerMatches.push(answerMatch[1]);
+        answerMatches.push(answerMatch[1].trim());
       }
       
       if (questionMatches.length > 0 && answerMatches.length > 0) {
         const minLength = Math.min(questionMatches.length, answerMatches.length);
         for (let i = 0; i < minLength; i++) {
-          questions.push({
-            question: questionMatches[i],
-            answer: answerMatches[i]
-          });
+          if (questionMatches[i] && answerMatches[i]) {
+            questions.push({
+              question: questionMatches[i],
+              answer: answerMatches[i]
+            });
+          }
         }
         return questions;
       }
@@ -310,6 +326,9 @@ const createFallbackStructure = (rawResponse) => {
 // --- FEATURE ROUTING ---
 
 export const generateSummary = async (textContent) => {
+  const detectedLanguage = detectLanguage(textContent);
+  const languageInstruction = getLanguageInstruction(detectedLanguage);
+  
   const prompt = `
   Create an EXTREMELY DETAILED, COMPREHENSIVE THEORETICAL summary with DEEP HIERARCHICAL STRUCTURE and perfect HTML formatting.
   
@@ -479,7 +498,7 @@ export const generateSummary = async (textContent) => {
   - Use RICH formatting with gradients, shadows, and styling
   - Make it EXAM-READY with complete information coverage
   
-  TEXT: "${textContent}"`;
+  TEXT: "${textContent}"${languageInstruction}`;
   
   const response = await generateContent(prompt);
   
@@ -558,6 +577,8 @@ const detectPracticalContent = (textContent) => {
 export const generateMarkBasedQuestions = async (textContent, markers = null, existingQuestions = [], count = 5) => {
   const existingQuestionsString = existingQuestions.length > 0 ? existingQuestions.join('\n') : '';
   const hasCodeContent = detectPracticalContent(textContent);
+  const detectedLanguage = detectLanguage(textContent);
+  const languageInstruction = getLanguageInstruction(detectedLanguage);
   
   if (markers) {
     const prompt = `
@@ -577,7 +598,7 @@ Answer length and structure based on marks:
 Return ONLY valid JSON array:
 [{"question": "Question text", "answer": "<strong>Key Point:</strong> Definition here.<br><br>Explanation with <strong>important terms</strong> highlighted.<br><br>Examples and applications.", "marks": ${markers}}]
 
-AVOID these questions: ${existingQuestionsString}
+AVOID these questions: ${existingQuestionsString}${languageInstruction}
 TEXT: "${textContent.substring(0, 2000)}"`;
     
     const rawResponse = await generateContent(prompt);
@@ -651,6 +672,8 @@ TEXT: "${textContent.substring(0, 2000)}"`;
 
 export const generateMindMap = async (textContent) => {
   const hasCodeContent = detectPracticalContent(textContent);
+  const detectedLanguage = detectLanguage(textContent);
+  const languageInstruction = getLanguageInstruction(detectedLanguage);
   
   try {
     const prompt = `Create an EXTREMELY DETAILED and COMPREHENSIVE mind map with DEEP HIERARCHICAL STRUCTURE covering ALL aspects of the content.
@@ -809,7 +832,7 @@ ${hasCodeContent ?
   'FOCUS: Create comprehensive coverage of all theoretical concepts, definitions, principles, and practical applications from the unit.'}
 
 Analyze the COMPLETE content and create ONE EXTREMELY DETAILED unified mind map with MAXIMUM DEPTH and COMPREHENSIVE COVERAGE.
-EXTRACT EVERY IMPORTANT DETAIL, CONCEPT, IMPLEMENTATION, AND EXAMPLE.
+EXTRACT EVERY IMPORTANT DETAIL, CONCEPT, IMPLEMENTATION, AND EXAMPLE.${languageInstruction}
 TEXT: "${textContent}"`;
     
     const rawResponse = await generateContent(prompt);
@@ -885,6 +908,32 @@ export const generateTitle = async (textContent) => {
   return await generateContent(prompt);
 };
 
+// Enhanced language detection for Hindi and Gujarati
+const detectLanguage = (text) => {
+  const languagePatterns = {
+    hindi: /[\u0900-\u097F]+/g,
+    gujarati: /[\u0A80-\u0AFF]+/g
+  };
+  
+  const scores = {};
+  for (const [lang, pattern] of Object.entries(languagePatterns)) {
+    const matches = text.match(pattern);
+    scores[lang] = matches ? matches.length : 0;
+  }
+  
+  const detectedLang = Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
+  return scores[detectedLang] > 0 ? detectedLang : 'english';
+};
+
+// Language-specific prompt helper
+const getLanguageInstruction = (language) => {
+  const instructions = {
+    hindi: '\n\nमहत्वपूर्ण: सभी प्रश्न और उत्तर हिंदी भाषा में बनाएं। इनपुट कंटेंट की भाषा को बनाए रखें।',
+    gujarati: '\n\nમહત્વપૂર્ણ: બધા પ્રશ્નો અને જવાબો ગુજરાતી ભાષામાં બનાવો। ઇનપુટ કન્ટેન્ટની ભાષા જાળવી રાખો।'
+  };
+  return instructions[language] || '';
+};
+
 export const generateFlashcards = async (textContent, existingCount = 0, type = null, existingQuestions = [], requestCount = null) => {
   const hasCodeContent = detectPracticalContent(textContent);
   console.log('Generating flashcards - hasCodeContent:', hasCodeContent);
@@ -895,12 +944,18 @@ export const generateFlashcards = async (textContent, existingCount = 0, type = 
       const cardCount = requestCount || 5;
       const avoidQuestions = existingQuestions.length > 0 ? `\nAVOID these existing questions: ${existingQuestions.slice(0, 10).join(', ')}` : '';
       
+      // Detect language and adjust prompts accordingly
+      const detectedLanguage = detectLanguage(textContent);
+      console.log('Detected language:', detectedLanguage);
+      
+      const languageInstruction = getLanguageInstruction(detectedLanguage);
+      
       const theoryPrompt = `Generate EXACTLY ${type === 'theory' ? cardCount : 5} EXAM-ORIENTED theoretical flashcards with clean formatting.
 
 Return ONLY a JSON array:
 [{"question": "What is [concept]?", "answer": "[Concept] is defined as...\n\nKey Features:\n• Feature 1: Description\n• Feature 2: Description\n\nApplications: Where it's used"}]
 
-Focus on EXAM-LEVEL theoretical questions${avoidQuestions}
+Focus on EXAM-LEVEL theoretical questions${avoidQuestions}${languageInstruction}
 
 TEXT: "${textContent.substring(0, 2000)}"`;
 
@@ -910,11 +965,11 @@ TEXT: "${textContent.substring(0, 2000)}"`;
 Return ONLY a JSON array:
 [{"question": "How do you implement [task]?", "answer": "Implementation Steps:\n\n1. Step 1: Description\n2. Step 2: Description\n\nCode Example:\n\n[code here]\n\nExplanation:\n• Line 1: Purpose\n• Line 2: Logic"}]
 
-Focus on EXAM-LEVEL practical questions${avoidQuestions}
+Focus on EXAM-LEVEL practical questions${avoidQuestions}${languageInstruction}
 
 TEXT: "${textContent.substring(0, 2000)}"`;
 
-      console.log('Generating flashcards - Type:', type, 'Count:', cardCount);
+      console.log('Generating flashcards - Type:', type, 'Count:', cardCount, 'Language:', detectedLanguage);
       
       if (type === 'theory') {
         const theoryResponse = await generateContent(theoryPrompt);
@@ -948,15 +1003,24 @@ TEXT: "${textContent.substring(0, 2000)}"`;
     } else {
       // Generate regular flashcards for non-code content
       const cardCount = requestCount || 10;
+      const detectedLanguage = detectLanguage(textContent);
+      const languageInstruction = getLanguageInstruction(detectedLanguage);
+      
       const prompt = `Generate EXACTLY ${cardCount} flashcards. You MUST return exactly ${cardCount} flashcards, no more, no less.
 
 Return ONLY a JSON array with exactly ${cardCount} objects:
-[{"question": "Question", "answer": "Answer"}]
+[{"question": "Question", "answer": "Answer"}]${languageInstruction}
 
 TEXT: "${textContent.substring(0, 2000)}"`;
       
       const rawResponse = await generateContent(prompt);
-      return cleanAndParseJson(rawResponse);
+      const flashcards = cleanAndParseJson(rawResponse);
+      
+      // For non-code content, return as theory flashcards to match controller expectations
+      return {
+        theory: Array.isArray(flashcards) ? flashcards : [],
+        practical: []
+      };
     }
   } catch (error) {
     console.error('Error in generateFlashcards:', error);
@@ -966,6 +1030,8 @@ TEXT: "${textContent.substring(0, 2000)}"`;
 
 export const generateQuiz = async (textContent, questionCount = 10) => {
   const hasCodeContent = detectPracticalContent(textContent);
+  const detectedLanguage = detectLanguage(textContent);
+  const languageInstruction = getLanguageInstruction(detectedLanguage);
   
   const prompt = `
   Create ${questionCount} FINAL EXAM LEVEL MCQ questions using BLOOM'S TAXONOMY.
@@ -1011,7 +1077,7 @@ export const generateQuiz = async (textContent, questionCount = 10) => {
     'INCLUDE: Definitions, explanations, applications, comparisons, and analytical questions.'
   }
   
-  TEXT: "${textContent.substring(0, 3000)}"`;
+  TEXT: "${textContent.substring(0, 3000)}"${languageInstruction}`;
   
   const rawResponse = await generateContent(prompt);
   return cleanAndParseJson(rawResponse);

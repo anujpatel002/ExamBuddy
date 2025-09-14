@@ -15,9 +15,23 @@ import {
 
 const router = express.Router();
 
-// Set up multer for in-memory file storage
+// Set up multer for in-memory file storage with Unicode filename support
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  fileFilter: (req, file, cb) => {
+    // Accept all file types but log the original name
+    console.log('Multer received file:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      encoding: file.encoding
+    });
+    cb(null, true);
+  },
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit
+  }
+});
 
 router.route('/')
   .get(protect, getMyNotes)
