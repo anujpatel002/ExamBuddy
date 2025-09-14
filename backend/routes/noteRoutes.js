@@ -15,6 +15,11 @@ import {
 
 const router = express.Router();
 
+const isMobileRequest = (req) => {
+  const userAgent = req.get('User-Agent') || '';
+  return /Mobile|Android|iPhone|iPad/.test(userAgent);
+};
+
 // Set up multer for in-memory file storage with Unicode filename support
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -30,8 +35,8 @@ const upload = multer({
     cb(null, true);
   },
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB limit
-    fieldSize: 50 * 1024 * 1024 // 50MB field size for mobile compatibility
+    fileSize: isMobileRequest(req) ? 10 * 1024 * 1024 : 100 * 1024 * 1024, // 10MB for mobile, 100MB for desktop
+    fieldSize: 5 * 1024 * 1024 // 5MB field size for mobile compatibility
   }
 });
 

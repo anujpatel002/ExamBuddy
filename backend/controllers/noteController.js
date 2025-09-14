@@ -11,13 +11,18 @@ import { getPlanLimits } from '../middleware/planLimits.js';
 const uploadNote = asyncHandler(async (req, res) => {
   console.log('=== UPLOAD DEBUG START ===');
   console.log('User Agent:', req.get('User-Agent')?.substring(0, 100));
+  console.log('Content-Type:', req.get('Content-Type'));
+  console.log('Content-Length:', req.get('Content-Length'));
+  console.log('Request method:', req.method);
+  console.log('Request body keys:', Object.keys(req.body || {}));
   console.log('Request body:', req.body);
   console.log('File info:', req.file ? {
     originalname: req.file.originalname,
     mimetype: req.file.mimetype,
     size: req.file.size,
-    encoding: req.file.encoding
-  } : 'No file');
+    encoding: req.file.encoding,
+    fieldname: req.file.fieldname
+  } : 'No file received');
   
   const { title, subjectId } = req.body;
   const user = await User.findById(req.user._id);
@@ -36,8 +41,22 @@ const uploadNote = asyncHandler(async (req, res) => {
 
   const file = req.file;
 
-  if (!file || !title || !subjectId) {
-    res.status(400); throw new Error('Title, file, and subject are required');
+  if (!file) {
+    console.log('No file received in request');
+    res.status(400); 
+    throw new Error('No file uploaded. Please select a file to upload.');
+  }
+  
+  if (!title) {
+    console.log('No title provided');
+    res.status(400); 
+    throw new Error('Title is required.');
+  }
+  
+  if (!subjectId) {
+    console.log('No subject ID provided');
+    res.status(400); 
+    throw new Error('Subject selection is required.');
   }
 
   try {
@@ -73,7 +92,7 @@ const uploadNote = asyncHandler(async (req, res) => {
     console.log('Is mobile request:', isMobile);
     
     // Set timeout for mobile devices - increased for better mobile support
-    const extractionTimeout = isMobile ? 90000 : 120000; // 90s for mobile, 120s for desktop
+    const extractionTimeout = isMobile ? 30000 : 120000; // 30s for mobile, 120s for desktop
     
     const textContent = await Promise.race([
       extractTextFromFile(file),
