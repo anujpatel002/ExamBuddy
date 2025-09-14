@@ -534,54 +534,54 @@ export const generateSummary = async (textContent) => {
 };
 
 const detectPracticalContent = (textContent) => {
-  // For non-English content, be more conservative about practical detection
-  const hasUnicodeText = /[\u0900-\u097F\u0A80-\u0AFF]+/.test(textContent);
+  const lowerContent = textContent.toLowerCase();
   
-  const practicalKeywords = [
-    'implementation', 'code', 'algorithm', 'program', 'function', 'method', 'class',
-    'procedure', 'steps', 'process', 'workflow', 'example', 'case study', 'scenario',
-    'application', 'practice', 'exercise', 'lab', 'experiment', 'project', 'build',
-    'create', 'develop', 'design', 'construct', 'execute', 'run', 'test', 'debug',
-    'syntax', 'variable', 'loop', 'condition', 'array', 'object', 'string', 'integer',
-    'boolean', 'if', 'else', 'for', 'while', 'return', 'print', 'input', 'output',
-    'compile', 'parameter', 'call', 'invoke', 'declare', 'initialize', 'instantiate',
+  // Programming/coding keywords
+  const codingKeywords = [
     'programming', 'coding', 'software', 'development', 'javascript', 'python', 'java',
-    'html', 'css', 'sql', 'database', 'framework', 'library', 'api'
+    'html', 'css', 'sql', 'database', 'framework', 'library', 'api', 'algorithm',
+    'function', 'method', 'class', 'variable', 'loop', 'syntax'
   ];
   
-  const lowerContent = textContent.toLowerCase();
-  const keywordCount = practicalKeywords.filter(keyword => 
+  // General practical keywords (experiments, procedures, etc.)
+  const generalPracticalKeywords = [
+    'experiment', 'procedure', 'steps', 'method', 'process', 'practical',
+    'lab', 'laboratory', 'demonstration', 'activity', 'exercise', 'practice',
+    'calculation', 'formula', 'equation', 'solution', 'preparation', 'observation'
+  ];
+  
+  const codingKeywordCount = codingKeywords.filter(keyword => 
     lowerContent.includes(keyword)
   ).length;
   
-  // Enhanced code pattern detection - but be more conservative for Unicode text
+  const generalPracticalCount = generalPracticalKeywords.filter(keyword => 
+    lowerContent.includes(keyword)
+  ).length;
+  
+  // Code pattern detection
   const codePatterns = [
-    /\b\w+\s*\(/,  // function calls like function()
-    /\bif\s*\(/,   // if statements
-    /\bfor\s*\(/,  // for loops
-    /\bwhile\s*\(/, // while loops
-    /\{[^}]*\}/,   // code blocks
-    /\w+\s*=/,     // assignments
-    /\bclass\s+\w+/, // class definitions
-    /\bdef\s+\w+/,   // function definitions
-    /\bvar\s+\w+/,   // variable declarations
-    /\blet\s+\w+/,   // let declarations
-    /\bconst\s+\w+/, // const declarations
-    /<\w+[^>]*>/,    // HTML tags
-    /SELECT|INSERT|UPDATE|DELETE/i, // SQL keywords
+    /\bfunction\s*\(/,
+    /\bclass\s+\w+/,
+    /<\w+[^>]*>/,
+    /SELECT|INSERT|UPDATE|DELETE/i,
+    /\{[^}]*\}/
   ];
   
   const codePatternCount = codePatterns.filter(pattern => 
     pattern.test(textContent)
   ).length;
   
-  // For Unicode text (Hindi/Gujarati), require more evidence of practical content
-  const threshold = hasUnicodeText ? 3 : 1;
-  const detected = keywordCount >= 3 || codePatternCount >= threshold;
+  // Determine if it's coding-specific or general practical content
+  const isCodingContent = codingKeywordCount >= 2 || codePatternCount >= 2;
+  const hasGeneralPractical = generalPracticalCount >= 2;
   
-  console.log(`Practical content detection: keywords=${keywordCount}, patterns=${codePatternCount}, hasUnicode=${hasUnicodeText}, threshold=${threshold}, detected=${detected}`);
+  console.log(`Content analysis: coding=${codingKeywordCount}, general=${generalPracticalCount}, patterns=${codePatternCount}, isCoding=${isCodingContent}`);
   
-  return detected;
+  return {
+    hasPractical: isCodingContent || hasGeneralPractical,
+    isCoding: isCodingContent,
+    isGeneral: hasGeneralPractical && !isCodingContent
+  };
 };
 
 export const generateMarkBasedQuestions = async (textContent, markers = null, existingQuestions = [], count = 5) => {
@@ -631,40 +631,40 @@ TEXT: "${textContent.substring(0, 2000)}"`;
     return Array.isArray(result) ? result : [];
   }
   
-  if (hasCodeContent) {
+  const contentAnalysis = detectPracticalContent(textContent);
+  
+  if (contentAnalysis.hasPractical) {
     // Generate theory questions
     const theoryPrompt = `
-      Generate FINAL EXAM LEVEL theoretical questions. Return ONLY valid JSON:
+      Generate FINAL EXAM LEVEL theoretical questions based on the content. Return ONLY valid JSON:
       {
         "oneMarker": [{"question": "Define [concept]", "answer": "<strong>Definition:</strong> Clear definition with <strong>key terms</strong> highlighted.", "marks": 1}],
         "threeMarker": [{"question": "Explain [concept] with advantages", "answer": "<strong>Explanation:</strong> Detailed explanation.<br><br><strong>Advantages:</strong><br>• Point 1<br>• Point 2", "marks": 3}],
         "fourMarker": [{"question": "Compare [concept A] vs [concept B]", "answer": "<strong>Comparison:</strong><br><br><strong>[Concept A]:</strong> Details<br><br><strong>[Concept B]:</strong> Details<br><br><strong>Key Differences:</strong> Analysis", "marks": 4}],
         "fiveMarker": [{"question": "Analyze [concept] with applications", "answer": "<strong>Analysis:</strong> Comprehensive explanation.<br><br><strong>Key Features:</strong><br>• Feature 1<br>• Feature 2<br><br><strong>Applications:</strong> Real-world examples", "marks": 5}]
       }
-      CRITICAL REQUIREMENTS:
-      - Generate 3-4 questions per category
-      - Focus ONLY on theoretical concepts, definitions, principles
-      - Use proper HTML formatting: <strong>, <br>, bullet points
-      - NO code examples or practical implementation
-      - Clear, structured answers with proper sections
-      - Ensure all questions are exam-level difficulty
+      Focus ONLY on theoretical concepts from the provided content.
       TEXT: "${textContent.substring(0, 2000)}"`;
       
-    // Generate practical questions
-    const practicalPrompt = `
-      Generate FINAL EXAM LEVEL practical questions with HTML formatting. Return ONLY valid JSON:
+    // Generate practical questions based on content type
+    const practicalPrompt = contentAnalysis.isCoding ? `
+      Generate coding/programming practical questions. Return ONLY valid JSON:
       {
         "oneMarker": [{"question": "What is the output: [code]?", "answer": "<strong>Output:</strong> Result<br><br><strong>Explanation:</strong> Why this output", "marks": 1}],
         "threeMarker": [{"question": "Write code for [task]", "answer": "<strong>Solution:</strong><br><pre>code here</pre><br><strong>Explanation:</strong> How it works", "marks": 3}],
-        "fourMarker": [{"question": "Debug this code: [buggy code]", "answer": "<strong>Errors Found:</strong><br>• Error 1<br>• Error 2<br><br><strong>Corrected Code:</strong><br><pre>fixed code</pre>", "marks": 4}],
-        "fiveMarker": [{"question": "Design [complex system]", "answer": "<strong>Design Approach:</strong> Strategy<br><br><strong>Implementation:</strong><br><pre>complete code</pre><br><br><strong>Benefits:</strong> Advantages", "marks": 5}]
+        "fourMarker": [{"question": "Debug this code", "answer": "<strong>Errors Found:</strong><br>• Error 1<br>• Error 2<br><br><strong>Corrected Code:</strong><br><pre>fixed code</pre>", "marks": 4}],
+        "fiveMarker": [{"question": "Design [system from content]", "answer": "<strong>Design:</strong> Strategy<br><br><strong>Implementation:</strong><br><pre>code</pre>", "marks": 5}]
       }
-      FORMATTING RULES:
-      - Use <strong> for headings, NOT **
-      - Use <pre> for code blocks
-      - Use <br> for spacing
-      - Structure answers with clear sections
-      Generate 1-2 questions per category.
+      Generate coding questions based on the provided content only.
+      TEXT: "${textContent.substring(0, 2000)}"` : `
+      Generate practical questions based on the content (experiments, calculations, procedures). Return ONLY valid JSON:
+      {
+        "oneMarker": [{"question": "Calculate [value from content]", "answer": "<strong>Solution:</strong> Step-by-step calculation", "marks": 1}],
+        "threeMarker": [{"question": "Describe the procedure for [experiment/method from content]", "answer": "<strong>Procedure:</strong><br>1. Step 1<br>2. Step 2<br>3. Step 3", "marks": 3}],
+        "fourMarker": [{"question": "Explain the experiment to [demonstrate concept from content]", "answer": "<strong>Aim:</strong> Purpose<br><br><strong>Procedure:</strong><br>1. Step 1<br>2. Step 2<br><br><strong>Observation:</strong> Results", "marks": 4}],
+        "fiveMarker": [{"question": "Design an experiment to [verify principle from content]", "answer": "<strong>Aim:</strong> Purpose<br><br><strong>Materials:</strong> List<br><br><strong>Procedure:</strong> Steps<br><br><strong>Expected Results:</strong> Analysis", "marks": 5}]
+      }
+      Generate practical questions (experiments, calculations, procedures) based ONLY on the provided content.
       TEXT: "${textContent.substring(0, 2000)}"`;
       
     const [theoryResponse, practicalResponse] = await Promise.all([

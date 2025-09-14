@@ -89,50 +89,7 @@ const PracticeQuestionCard = ({ question, index, activePracticeTab, questionCate
                   <span className="text-sm font-semibold text-green-700 dark:text-green-300">ANSWER</span>
                 </div>
                 <div className="prose dark:prose-invert prose-sm max-w-none text-sm leading-7 overflow-y-auto max-h-96 overflow-x-hidden">
-                  {(() => {
-                    const answer = question.answer;
-                    // Check if answer contains code blocks or HTML code
-                    if (answer.includes('<pre>') || answer.includes('<code>') || answer.includes('```') || answer.includes('&lt;') || answer.includes('&gt;')) {
-                      // Split by code blocks and render appropriately
-                      const parts = answer.split(/(<pre[^>]*>.*?<\/pre>|<code[^>]*>.*?<\/code>|```[\s\S]*?```)/g);
-                      return parts.map((part, index) => {
-                        if (part.startsWith('<pre') && part.includes('</pre>')) {
-                          // Pre-formatted code block
-                          return (
-                            <div key={index} className="my-3 overflow-x-auto">
-                              <div dangerouslySetInnerHTML={{ __html: sanitizeHTML(part) }} />
-                            </div>
-                          );
-                        } else if (part.startsWith('<code') && part.includes('</code>')) {
-                          // Inline code
-                          return (
-                            <span key={index} className="inline-block max-w-full overflow-x-auto">
-                              <span dangerouslySetInnerHTML={{ __html: sanitizeHTML(part) }} />
-                            </span>
-                          );
-                        } else if (part.startsWith('```') && part.endsWith('```')) {
-                          // Markdown code block
-                          const code = part.slice(3, -3).trim();
-                          return (
-                            <pre key={index} className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto my-3 border border-gray-700">
-                              <code className="font-mono text-sm whitespace-pre break-words">{code}</code>
-                            </pre>
-                          );
-                        } else {
-                          // Regular text with word wrapping - strip HTML tags
-                          const textContent = part.replace(/<[^>]*>/g, '');
-                          return (
-                            <div key={index} className="break-words overflow-wrap-anywhere whitespace-pre-wrap hyphens-auto word-break-break-all">{textContent}</div>
-                          );
-                        }
-                      });
-                    } else {
-                      // No code, render normally with word wrapping - strip HTML tags
-                      const textContent = answer.replace(/<[^>]*>/g, '');
-                      return <div className="break-words overflow-wrap-anywhere whitespace-pre-wrap hyphens-auto word-break-break-all">{textContent}</div>;
-                    }
-                  })()
-                  }
+                  <div dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.answer) }} />
                 </div>
               </div>
             </div>
