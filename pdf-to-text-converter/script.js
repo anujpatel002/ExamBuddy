@@ -13,7 +13,7 @@ const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 const status = document.getElementById('status');
 const downloadSection = document.getElementById('downloadSection');
-const downloadDocx = document.getElementById('downloadDocx');
+
 
 
 // File upload handling
@@ -86,30 +86,30 @@ convertBtn.addEventListener('click', async () => {
             }
         });
         
-        extractedText = '';
         const totalPages = pdf.numPages;
+        let allText = '';
         
-        for (let pageNum = 1; pageNum <= Math.min(totalPages, 10); pageNum++) {
-            updateProgress(30 + (pageNum / totalPages) * 60, `Processing page ${pageNum}/${totalPages}...`);
+        for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+            const overallProgress = 30 + ((pageNum - 1) / totalPages) * 60;
+            updateProgress(overallProgress, `Processing page ${pageNum}/${totalPages}...`);
             
             const page = await pdf.getPage(pageNum);
             const viewport = page.getViewport({ scale: 2.0 });
             
-            // Create canvas
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
             canvas.height = viewport.height;
             canvas.width = viewport.width;
             
-            // Render page to canvas
             await page.render({ canvasContext: context, viewport: viewport }).promise;
             
-            // Convert canvas to image and run OCR
             const imageData = canvas.toDataURL('image/png');
             const { data: { text } } = await worker.recognize(imageData);
             
-            extractedText += `--- Page ${pageNum} ---\n${text}\n\n`;
+            allText += `--- Page ${pageNum} ---\n${text}\n\n`;
         }
+        
+        extractedText = allText;
         
         await worker.terminate();
         
@@ -117,8 +117,9 @@ convertBtn.addEventListener('click', async () => {
         
         setTimeout(() => {
             progress.style.display = 'none';
+            generateDownloadButtons();
             downloadSection.style.display = 'block';
-            showStatus(`Successfully extracted text from ${Math.min(totalPages, 10)} pages`, 'success');
+            showStatus(`Successfully extracted text from ${totalPages} pages`, 'success');
         }, 500);
         
     } catch (error) {
@@ -130,9 +131,19 @@ convertBtn.addEventListener('click', async () => {
     }
 });
 
-// Download function
-downloadDocx.addEventListener('click', () => {
-    // Create HTML file with proper UTF-8 encoding for Gujarati text
+// Generate single download button
+function generateDownloadButtons() {
+    const buttonsContainer = document.getElementById('downloadButtons');
+    buttonsContainer.innerHTML = '';
+    
+    const btn = document.createElement('button');
+    btn.className = 'btn';
+    btn.textContent = '💾 Download HTML';
+    btn.onclick = downloadHtml;
+    buttonsContainer.appendChild(btn);
+}
+
+function downloadHtml() {
     const htmlContent = `<!DOCTYPE html>
 <html>
 <head>
@@ -141,6 +152,7 @@ downloadDocx.addEventListener('click', () => {
     <style>body{font-family:Arial,sans-serif;line-height:1.6;margin:20px;}</style>
 </head>
 <body>
+    <h1>Extracted PDF Text</h1>
     <pre>${extractedText}</pre>
 </body>
 </html>`;
@@ -152,7 +164,7 @@ downloadDocx.addEventListener('click', () => {
     a.download = selectedFile.name.replace('.pdf', '_extracted.html');
     a.click();
     URL.revokeObjectURL(url);
-});
+}
 
 
 
