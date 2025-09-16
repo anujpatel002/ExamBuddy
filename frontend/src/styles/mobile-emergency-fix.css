@@ -1,0 +1,51 @@
+/* EMERGENCY MOBILE VISIBILITY FIX */
+@media (max-width: 768px) {
+  /* Force all text to be black on mobile */
+  * {
+    color: #000000 !important;
+  }
+  
+  /* Force all backgrounds to be white on mobile */
+  body, html, div, section, main, article {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+  }
+  
+  /* Force card backgrounds */
+  .bg-white, .dark\:bg-gray-800, .bg-gray-50, .dark\:bg-gray-900 {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+  }
+  
+  /* Force text colors */
+  .text-gray-900, .dark\:text-white, .text-gray-600, .dark\:text-gray-400 {
+    color: #000000 !important;
+  }
+  
+  /* Force button text */
+  button, .btn, [role="button"] {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    border: 1px solid #000000 !important;
+  }
+  
+  /* Force input text */
+  input, textarea, select {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    border: 1px solid #000000 !important;
+  }
+  
+  /* Force link text */
+  a, .link {
+    color: #0066cc !important;
+  }
+  
+  /* Override any CSS variables */
+  :root {
+    --text-color: #000000 !important;
+    --bg-color: #ffffff !important;
+    --primary-text: #000000 !important;
+    --secondary-text: #333333 !important;
+  }
+}

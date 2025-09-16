@@ -15,7 +15,10 @@ import {
   createStudyPlan,
   compareConcepts,
   generateExamPaper,
-  createSubjectQuiz
+  createSubjectQuiz,
+  analyzeDocuments,
+  generateStudyMaterial,
+  generateAudioOverview
 } from '../controllers/aiController.js';
 
 const storage = multer.memoryStorage();
@@ -31,6 +34,7 @@ router.post('/mindmap/:noteId', protect, checkPlanLimit('aiCredits'), checkApiLi
 router.post('/study-plan/:subjectId', protect, checkPlanLimit('aiCredits'), checkApiLimit, createStudyPlan);
 router.post('/compare-concepts', protect, checkPlanLimit('compareNotes'), checkPlanLimit('aiCredits'), checkApiLimit, compareConcepts);
 router.post('/generate-exam/:subjectId', protect, checkPlanLimit('examCreator'), checkPlanLimit('aiCredits'), checkApiLimit, generateExamPaper);
+router.post('/generate-exam/:noteId', protect, checkPlanLimit('aiCredits'), checkApiLimit, generateExamPaper);
 router.post('/subject-quiz/:subjectId', protect, checkPlanLimit('aiCredits'), checkApiLimit, createSubjectQuiz);
 router.get('/practice-questions/:noteId', protect, async (req, res) => {
   try {
@@ -44,5 +48,13 @@ router.get('/practice-questions/:noteId', protect, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+// NotebookLM routes
+router.get('/notebook/test', protect, (req, res) => {
+  res.json({ message: 'NotebookLM routes working', user: req.user.email });
+});
+router.post('/notebook/analyze', protect, checkPlanLimit('aiCredits'), checkApiLimit, analyzeDocuments);
+router.post('/notebook/study-material', protect, checkPlanLimit('aiCredits'), checkApiLimit, generateStudyMaterial);
+router.post('/notebook/audio-overview', protect, checkPlanLimit('aiCredits'), checkApiLimit, generateAudioOverview);
 
 export default router;

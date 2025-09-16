@@ -28,28 +28,37 @@ const QuizInterface = ({ quiz, onSubmitAnswer }: QuizInterfaceProps) => {
   };
   
   return (
-    <div className="bg-white p-6 rounded-lg shadow">
-      <h3 className="text-xl font-semibold mb-4">Question {currentQuestionIndex + 1} of {quiz.questions.length}</h3>
-      <p className="text-lg mb-6">{question.question}</p>
-      <div className="space-y-3">
-        {question.options.map((option, index) => (
-          <button
-            key={index}
-            onClick={() => setSelectedOption(option)}
-            className={`w-full text-left p-3 rounded-md border-2 transition-colors ${
-              selectedOption === option
-                ? 'bg-indigo-100 border-indigo-500'
-                : 'bg-white border-gray-300 hover:bg-gray-50'
-            }`}
+    <div className="glass-card p-8 rounded-3xl shadow-2xl relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5"></div>
+      
+      <div className="relative z-10">
+        <h3 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-6">Question {currentQuestionIndex + 1} of {quiz.questions.length}</h3>
+        <p className="text-lg mb-8 theme-text-primary leading-relaxed">{question.question}</p>
+        <div className="space-y-4">
+          {question.options.map((option, index) => (
+            <button
+              key={index}
+              onClick={() => setSelectedOption(option)}
+              className={`quiz-option w-full text-left p-4 rounded-2xl border-2 transition-all duration-300 theme-text-primary ${
+                selectedOption === option
+                  ? 'glass-card quiz-selected shadow-lg'
+                  : 'glass-card theme-border'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+        <div className="mt-8 flex justify-end">
+          <Button 
+            onClick={handleNext} 
+            disabled={!selectedOption}
+            className="modern-button bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white hover:scale-105 transition-all duration-300 px-6 py-3 rounded-2xl"
           >
-            {option}
-          </button>
-        ))}
-      </div>
-      <div className="mt-6 flex justify-end">
-        <Button onClick={handleNext} disabled={!selectedOption}>
-          {currentQuestionIndex === quiz.questions.length - 1 ? 'Finish Quiz' : 'Next Question'}
-        </Button>
+            {currentQuestionIndex === quiz.questions.length - 1 ? 'Finish Quiz' : 'Next Question'}
+          </Button>
+        </div>
       </div>
     </div>
   );

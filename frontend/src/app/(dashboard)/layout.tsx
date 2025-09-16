@@ -54,12 +54,11 @@ function DashboardContent({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen">
-
+    <div className={`dashboard-container min-h-screen transition-all duration-500 ${sidebarOpen ? 'sidebar-open' : ''}`} style={{background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'}}>
       <Sidebar isOpen={sidebarOpen} />
-      <div className="md:ml-64 flex flex-col">
+      <div className="main-content">
         <Navbar toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="flex-1 p-4 sm:p-6 md:p-8">
+        <main className="content-wrapper pt-6">
           {children}
         </main>
       </div>

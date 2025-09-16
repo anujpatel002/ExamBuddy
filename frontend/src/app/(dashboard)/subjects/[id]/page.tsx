@@ -4,14 +4,16 @@ export const dynamic = 'force-dynamic';
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { createPortal } from 'react-dom';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { sanitizeHTML } from '@/utils/sanitizer';
+import { formatCodeContent, containsCode, containsSteps } from '@/utils/codeFormatter';
 import NoteCard from '@/components/notes/NoteCard';
 import UploadNoteModal from '@/components/notes/UploadNoteModal';
 import Button from '@/components/ui/Button';
-import { FiArrowLeft, FiEdit, FiTrash2, FiCheckSquare, FiX, FiBook, FiTarget, FiCalendar, FiColumns, FiEye, FiBookmark } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit, FiTrash2, FiCheckSquare, FiX, FiBook, FiTarget, FiCalendar, FiColumns, FiEye, FiBookmark, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import DeleteConfirmationModal from '@/components/ui/DeleteConfirmationModal';
 import EditModal from '@/components/ui/EditModal';
 import Link from 'next/link';
@@ -21,7 +23,7 @@ interface Note { _id: string; title: string; createdAt: string; status: 'approve
 interface Subject { _id: string; name: string; questionBank: any[]; studyPlan?: any }
 
 // Q-Bank Question Card Component
-const QBankQuestionCard = ({ question, index, subjectId, category, type, isPinned, onPinToggle }: { 
+const QBankQuestionCard = ({ question, index, subjectId, category, type, isPinned, onPinToggle, allQuestions, currentIndex }: { 
   question: any; 
   index: number; 
   subjectId: string; 
@@ -29,8 +31,11 @@ const QBankQuestionCard = ({ question, index, subjectId, category, type, isPinne
   type?: string; 
   isPinned?: boolean;
   onPinToggle?: (pinned: boolean) => void;
+  allQuestions?: any[];
+  currentIndex?: number;
 }) => {
-  const [showAnswer, setShowAnswer] = useState(false);
+  const [showViewer, setShowViewer] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(currentIndex || 0);
   const [isToggling, setIsToggling] = useState(false);
   
   const handlePinToggle = async () => {
@@ -54,80 +59,186 @@ const QBankQuestionCard = ({ question, index, subjectId, category, type, isPinne
     }
   };
   
+  const nextQuestion = () => {
+    if (allQuestions && viewerIndex < allQuestions.length - 1) {
+      setViewerIndex(viewerIndex + 1);
+    }
+  };
+
+  const prevQuestion = () => {
+    if (viewerIndex > 0) {
+      setViewerIndex(viewerIndex - 1);
+    }
+  };
+  
+  useEffect(() => {
+    if (showViewer) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [showViewer]);
+  
   return (
-    <div className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-all duration-300 ${showAnswer ? 'shadow-lg' : ''}`}>
-      <div className="bg-gray-50 dark:bg-gray-800/50 p-3 sm:p-4">
-        <div className="flex items-start justify-between gap-2 sm:gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 whitespace-nowrap">
-                Q{index + 1}
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 whitespace-nowrap">
-                {question.marks}M
-              </span>
-              {question.source && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
-                  question.type === 'combination' 
-                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-900/50 dark:text-gray-300'
-                }`}>
-                  {question.source}
-                </span>
-              )}
-            </div>
-            <h4 className="font-medium text-gray-900 dark:text-gray-100 leading-relaxed mb-3 break-words overflow-wrap-anywhere word-break-break-word hyphens-auto">{question.question}</h4>
-            
-            {showAnswer && (
-              <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-700">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
-                  <span className="text-sm font-semibold text-green-700 dark:text-green-300">ANSWER</span>
+    <div className={`glass-card rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-500 group hover:scale-105 ${showViewer ? 'shadow-2xl' : ''}`}>
+      <div className="relative p-6">
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        
+        <div className="relative z-10">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  {isPinned && <span className="text-2xl animate-pulse">📌</span>}
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+                    Question {index + 1}
+                  </span>
+                  <span className={`glass-card px-3 py-1 rounded-full text-xs font-bold ${
+                    category === 'oneMarker' ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-300' :
+                    category === 'threeMarker' ? 'bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/30 dark:to-orange-900/30 text-yellow-700 dark:text-yellow-300' :
+                    category === 'fourMarker' ? 'bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/30 dark:to-red-900/30 text-orange-700 dark:text-orange-300' :
+                    'bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/30 dark:to-pink-900/30 text-red-700 dark:text-red-300'
+                  }`}>
+                    {category.replace('Marker', ' Marker')}
+                  </span>
                 </div>
-                <div className="max-h-96 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
-                  <div 
-                    className="prose dark:prose-invert prose-sm max-w-none text-sm leading-6 sm:leading-7 space-y-2 break-words overflow-wrap-anywhere word-break-break-word hyphens-auto"
-                    style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-                    dangerouslySetInnerHTML={{ 
-                      __html: sanitizeHTML(question.answer)
-                        .replace(/\n\n/g, '</p><p class="mt-3">')
-                        .replace(/\n/g, '<br>')
-                        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100 bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">$1</strong>')
-                        .replace(/^(\d+\.|•|-)\s/gm, '<span class="font-medium text-indigo-600 dark:text-indigo-400">$&</span>')
-                    }} 
-                  />
-                </div>
-              </div>
-            )}
-            
-            <div className="mt-4 flex flex-col sm:flex-row gap-2">
-              <button
-                onClick={() => setShowAnswer(!showAnswer)}
-                className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex-1 sm:flex-none ${
-                  showAnswer 
-                    ? 'bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/50 dark:hover:bg-green-900/70 dark:text-green-300'
-                    : 'bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/50 dark:hover:bg-blue-900/70 dark:text-blue-300'
-                }`}
-              >
-                {showAnswer ? '👁️ Hide' : '👀 Show'}
-              </button>
-              {onPinToggle && (
                 <button
                   onClick={handlePinToggle}
                   disabled={isToggling}
-                  className={`px-3 sm:px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex-1 sm:flex-none ${
-                    isPinned
-                      ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700 dark:bg-yellow-900/50 dark:hover:bg-yellow-900/70 dark:text-yellow-300'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300'
+                  className={`p-2 glass-card rounded-xl transition-all duration-300 hover:scale-110 ${
+                    isPinned ? 'text-yellow-500 hover:text-yellow-600 shadow-lg' : 'text-gray-400 hover:text-gray-600'
                   } ${isToggling ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  title={isPinned ? 'Unpin question' : 'Pin question'}
                 >
-                  {isToggling ? '⏳' : isPinned ? '📌 Pinned' : '📌 Pin'}
+                  {isToggling ? '⏳' : '📌'}
                 </button>
-              )}
+              </div>
+              <div className="font-bold text-gray-900 dark:text-gray-100 leading-relaxed mb-4 text-lg">
+                {containsCode(question.question, type as 'theory' | 'practical') ? (
+                  <div dangerouslySetInnerHTML={{ __html: formatCodeContent(question.question, type as 'theory' | 'practical') }} />
+                ) : (
+                  question.question
+                )}
+              </div>
+            
+
+            
+              <div className="mt-6">
+                <button
+                  onClick={() => {
+                    setShowViewer(true);
+                    setTimeout(() => {
+                      const contentDiv = document.querySelector('.question-viewer-content');
+                      if (contentDiv) contentDiv.scrollTop = 0;
+                    }, 300);
+                  }}
+                  className="center-content gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-2xl font-medium transition-all duration-300 hover:scale-105 shadow-lg"
+                >
+                  <FiEye className="w-4 h-4" />
+                  <span>View Answer</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Question Viewer */}
+      {showViewer && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-white dark:bg-gray-800 flex flex-col overflow-hidden question-popup" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, width: '100vw', height: '100dvh', minHeight: '100dvh' }}>
+            {/* Header - Always Show */}
+            <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-indigo-600">
+              <div className="flex justify-between items-center p-4">
+                <div className="flex items-center gap-4">
+                  <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium text-white">
+                    {allQuestions && allQuestions.length > 0 ? `${viewerIndex + 1} of ${allQuestions.length}` : '1 of 1'}
+                  </span>
+                  <div className="flex gap-2 md:hidden">
+                    <button
+                      onClick={prevQuestion}
+                      disabled={!allQuestions || allQuestions.length <= 1 || viewerIndex === 0}
+                      className="p-2 bg-white/20 hover:bg-white/30 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <FiChevronLeft className="w-4 h-4 text-white" />
+                    </button>
+                    <button
+                      onClick={nextQuestion}
+                      disabled={!allQuestions || allQuestions.length <= 1 || viewerIndex === allQuestions.length - 1}
+                      className="p-2 bg-white/20 hover:bg-white/30 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <FiChevronRight className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowViewer(false)}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <FiX className="w-6 h-6 text-white" />
+                </button>
+              </div>
+              <div className="px-4 pb-3">
+                <span className="text-sm font-medium text-white/80">Q & A</span>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 bg-white dark:bg-gray-800 overflow-y-auto question-viewer-content p-6">
+              <div className="max-w-none space-y-8">
+                {/* Question */}
+                <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border-l-4 border-blue-500">
+                  <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 mb-4">QUESTION</h3>
+                  <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-base overflow-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    {containsCode(allQuestions?.[viewerIndex]?.question || question.question, type as 'theory' | 'practical') ? (
+                      <div dangerouslySetInnerHTML={{ __html: formatCodeContent(allQuestions?.[viewerIndex]?.question || question.question, type as 'theory' | 'practical') }} />
+                    ) : (
+                      <p className="text-base leading-7">{allQuestions?.[viewerIndex]?.question || question.question}</p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Answer */}
+                <div className="p-6 bg-green-50 dark:bg-green-900/20 rounded-xl border-l-4 border-green-500">
+                  <h3 className="text-lg font-bold text-green-600 dark:text-green-400 mb-4">ANSWER</h3>
+                  <div className="prose dark:prose-invert prose-base max-w-none text-gray-800 dark:text-gray-200 overflow-auto whitespace-pre-wrap break-words" style={{ WebkitOverflowScrolling: 'touch', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                    {(containsCode(allQuestions?.[viewerIndex]?.answer || question.answer, type as 'theory' | 'practical') || containsSteps(allQuestions?.[viewerIndex]?.answer || question.answer)) ? (
+                      <div dangerouslySetInnerHTML={{ __html: formatCodeContent(allQuestions?.[viewerIndex]?.answer || question.answer, type as 'theory' | 'practical') }} />
+                    ) : (
+                      <div className="text-base leading-7" dangerouslySetInnerHTML={{ __html: sanitizeHTML(allQuestions?.[viewerIndex]?.answer || question.answer) }} />
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Desktop Navigation - Always Show */}
+              <div className="hidden md:flex justify-center gap-4 p-6 mt-8 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={prevQuestion}
+                  disabled={!allQuestions || allQuestions.length <= 1 || viewerIndex === 0}
+                  className="px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-base font-medium"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={nextQuestion}
+                  disabled={!allQuestions || allQuestions.length <= 1 || viewerIndex === allQuestions.length - 1}
+                  className="px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-base font-medium"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
@@ -288,58 +399,65 @@ export default function SubjectDetailPage() {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-6 gap-4">
-        <div className="flex items-center gap-2 md:gap-4">
-          <button onClick={() => router.push('/dashboard')} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-            <FiArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
-          </button>
-          <h1 className="text-lg md:text-2xl lg:text-3xl font-bold truncate">{subject?.name}</h1>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          {activeTab === 'notes' && notes.length > 0 && (
-            <Button onClick={toggleSelectionMode} variant="secondary" size="sm" className="flex-1 sm:flex-none">
-              {isSelectionMode ? <FiX className="mr-1 md:mr-2"/> : <FiCheckSquare className="mr-1 md:mr-2"/>}
-              <span className="hidden sm:inline">{isSelectionMode ? 'Cancel' : 'Select'}</span>
-              <span className="sm:hidden">{isSelectionMode ? 'Cancel' : 'Select'}</span>
-            </Button>
-          )}
-          {activeTab === 'notes' && (
-            <Button onClick={() => setUploadModalOpen(true)} size="sm" className="flex-1 sm:flex-none">
-              <span className="hidden sm:inline">Upload Note</span>
-              <span className="sm:hidden">Upload</span>
-            </Button>
-          )}
+    <div className="px-4 sm:px-6 lg:px-8 page-transition">
+      <div className="glass-card p-6 rounded-3xl mb-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-xl float"></div>
+        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <button onClick={() => router.replace('/subjects')} className="p-3 rounded-2xl hover:bg-white/20 dark:hover:bg-gray-800/50 transition-all duration-300 backdrop-blur-sm">
+              <FiArrowLeft className="w-6 h-6" />
+            </button>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold theme-text-primary">{subject?.name}</h1>
+              <p className="theme-text-secondary text-sm mt-1">Subject Dashboard</p>
+            </div>
+          </div>
+          <div className="flex gap-3 w-full sm:w-auto">
+            {activeTab === 'notes' && notes.length > 0 && (
+              <button onClick={toggleSelectionMode} className="btn-modern px-4 py-2 text-sm">
+                {isSelectionMode ? <FiX className="mr-2"/> : <FiCheckSquare className="mr-2"/>}
+                {isSelectionMode ? 'Cancel' : 'Select'}
+              </button>
+            )}
+            {activeTab === 'notes' && (
+              <button onClick={() => setUploadModalOpen(true)} className="btn-modern px-6 py-2 text-sm">
+                Upload Note
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-        <nav className="-mb-px flex space-x-2 sm:space-x-4 overflow-x-auto scrollbar-hide pb-2">
-          <button onClick={() => setActiveTab('notes')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'notes' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+      <div className="glass-card rounded-2xl p-2 mb-8">
+        <nav className="flex space-x-2 overflow-x-auto scrollbar-hide">
+          <button onClick={() => setActiveTab('notes')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex-shrink-0 ${activeTab === 'notes' ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800/50'}`}>
             <FiBook className="w-4 h-4" /> Notes
           </button>
-          <button onClick={() => setActiveTab('qbank')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'qbank' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          <button onClick={() => setActiveTab('qbank')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex-shrink-0 ${activeTab === 'qbank' ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800/50'}`}>
             <FiTarget className="w-4 h-4" /> Q-Bank
           </button>
-          <button onClick={() => setActiveTab('studyplan')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'studyplan' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          <button onClick={() => setActiveTab('studyplan')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex-shrink-0 ${activeTab === 'studyplan' ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800/50'}`}>
             <FiCalendar className="w-4 h-4" /> Plan
           </button>
-          <button onClick={() => setActiveTab('compare')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'compare' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          <button onClick={() => setActiveTab('compare')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex-shrink-0 ${activeTab === 'compare' ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800/50'}`}>
             <FiColumns className="w-4 h-4" /> Compare
           </button>
-          <button onClick={() => setActiveTab('mcq')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'mcq' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          <button onClick={() => setActiveTab('mcq')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex-shrink-0 ${activeTab === 'mcq' ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800/50'}`}>
             <FiEdit className="w-4 h-4" /> MCQ
           </button>
-          <button onClick={() => setActiveTab('examcreator')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'examcreator' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          <button onClick={() => setActiveTab('examcreator')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex-shrink-0 ${activeTab === 'examcreator' ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800/50'}`}>
             🎯 Exam
           </button>
-          <button onClick={() => setActiveTab('pinned')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors flex-shrink-0 ${activeTab === 'pinned' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          <button onClick={() => setActiveTab('pinned')} className={`flex items-center gap-2 whitespace-nowrap py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex-shrink-0 ${activeTab === 'pinned' ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg' : 'text-slate-800 dark:text-slate-200 hover:bg-white/50 dark:hover:bg-gray-800/50'}`}>
             📌 Pinned
             {pinnedQuestions.length > 0 && (
-              <span className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 text-xs px-2 py-0.5 rounded-full">
+              <span className={`text-xs px-2 py-0.5 rounded-full ${activeTab === 'pinned' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300'}`}>
                 {pinnedQuestions.length}
               </span>
             )}
+          </button>
+          <button onClick={() => toast('🚀 Feature coming soon!')} className="flex items-center gap-2 whitespace-nowrap py-3 px-4 rounded-xl font-medium text-sm transition-all duration-300 flex-shrink-0 text-slate-800 dark:text-slate-200 hover:bg-white/50 dark:hover:bg-gray-800/50">
+            🤖 NotebookLM
           </button>
         </nav>
       </div>
@@ -347,35 +465,51 @@ export default function SubjectDetailPage() {
       {activeTab === 'notes' && (
         <>
           {isSelectionMode && selectedNotes.length > 0 && (
-            <div className="mb-4 md:mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-indigo-50 dark:bg-indigo-900/50 p-3 md:p-4 rounded-lg">
-              <span className="font-semibold text-sm md:text-base">{selectedNotes.length} note(s) selected</span>
-              <Button onClick={() => handleDeleteClick()} className="bg-red-600 hover:bg-red-700 w-full sm:w-auto" size="sm">
-                <FiTrash2 className="mr-2"/> Delete Selected
-              </Button>
+            <div className="mb-6 glass-card p-6 rounded-2xl bg-gradient-to-r from-red-50/50 to-pink-50/50 dark:from-red-900/20 dark:to-pink-900/20 border border-red-200/50 dark:border-red-700/50">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <span className="font-bold text-lg text-red-700 dark:text-red-300">{selectedNotes.length} note(s) selected</span>
+                <button onClick={() => handleDeleteClick()} className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105">
+                  <FiTrash2 className="mr-2"/> Delete Selected
+                </button>
+              </div>
             </div>
           )}
           
           {notes.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-              {notes.map(note => (
-                <div key={note._id} className={`relative bg-white dark:bg-gray-800 rounded-lg shadow flex flex-col transition-all select-none ${isSelectionMode ? 'cursor-pointer' : ''} ${selectedNotes.includes(note._id) ? 'ring-2 ring-indigo-500' : ''}`} onClick={() => isSelectionMode ? handleSelectNote(note._id) : router.push(`/notes/${note._id}`)}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {notes.map((note, index) => (
+                <div key={note._id} className={`stagger-item relative glass-card rounded-2xl flex flex-col transition-all duration-500 select-none group ${isSelectionMode ? 'cursor-pointer' : 'hover:scale-105 cursor-pointer'} ${selectedNotes.includes(note._id) ? 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/20' : ''}`} style={{animationDelay: `${index * 0.1}s`}} onClick={() => isSelectionMode ? handleSelectNote(note._id) : router.push(`/notes/${note._id}`)}>
                   {isSelectionMode ? (
-                    <div className="p-4 flex-grow">
-                      <input type="checkbox" checked={selectedNotes.includes(note._id)} readOnly className="absolute top-4 right-4 h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                    <div className="p-6 flex-grow relative overflow-hidden">
+                      <div className="absolute top-4 right-4 z-20">
+                        <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all duration-300 shadow-lg ${
+                          selectedNotes.includes(note._id) 
+                            ? 'bg-blue-500 border-blue-500 shadow-blue-200 dark:shadow-blue-900' 
+                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-gray-200 dark:shadow-gray-800'
+                        }`}>
+                          {selectedNotes.includes(note._id) ? (
+                            <FiCheckSquare className="w-5 h-5 text-white" />
+                          ) : (
+                            <div className="w-3 h-3 rounded-full border border-gray-400 dark:border-gray-500"></div>
+                          )}
+                        </div>
+                      </div>
                       <NoteCard note={note} />
                     </div>
                   ) : (
-                    <Link href={`/notes/${note._id}`} className="p-4 flex-grow block">
-                      <NoteCard note={note} />
+                    <Link href={`/notes/${note._id}`} className="p-6 flex-grow block relative overflow-hidden">
+                      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                      <div className="relative z-10">
+                        <NoteCard note={note} />
+                      </div>
                     </Link>
                   )}
                   
                   {!isSelectionMode && (
-                    <div className="flex items-center gap-2 p-4 pt-0 border-t dark:border-gray-700">
+                    <div className="flex items-center gap-3 p-6 pt-0 border-t border-white/20 dark:border-gray-700/50">
                       <div className="ml-auto flex gap-2">
-                        <Button variant="secondary" size="sm" className="px-3 sm:hidden" onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/notes/${note._id}`); }}><FiEye /></Button>
-                        <Button variant="secondary" size="sm" className="px-3" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditClick(note); }}><FiEdit /></Button>
-                        <Button variant="secondary" size="sm" className="px-3 text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/50" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteClick(note); }}><FiTrash2 /></Button>
+                        <button className="p-2 bg-white/50 dark:bg-gray-800/50 border border-gray-200/50 dark:border-gray-600/50 rounded-xl hover:bg-white dark:hover:bg-gray-700 transition-all duration-300 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEditClick(note); }}><FiEdit /></button>
+                        <button className="p-2 bg-red-50/50 dark:bg-red-900/20 border border-red-200/50 dark:border-red-700/50 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-all duration-300 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteClick(note); }}><FiTrash2 /></button>
                       </div>
                     </div>
                   )}
@@ -383,280 +517,250 @@ export default function SubjectDetailPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center text-gray-500 dark:text-gray-400 mt-8">
-              <p>No notes uploaded for this subject yet.</p>
+            <div className="glass-card p-12 rounded-3xl text-center">
+              <div className="relative inline-block mb-8">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full blur-xl opacity-20 animate-pulse"></div>
+                <div className="relative w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto shadow-2xl">
+                  <FiBook className="h-10 w-10 text-white" />
+                </div>
+              </div>
+              <h3 className="text-3xl font-bold mb-4 theme-text-primary">No notes yet</h3>
+              <p className="theme-text-secondary text-lg mb-8 max-w-md mx-auto">Upload your first note to start building your AI-powered study materials.</p>
             </div>
           )}
         </>
       )}
 
       {activeTab === 'qbank' && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div className="space-y-6">
           {subject?.questionBank && (
             (subject.questionBank.oneMarker?.length > 0 || subject.questionBank.threeMarker?.length > 0 || subject.questionBank.fourMarker?.length > 0 || subject.questionBank.fiveMarker?.length > 0) ||
             (subject.questionBank.theory || subject.questionBank.practical)
           ) ? (
-            <div>
-              {/* Header */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-3 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex flex-col gap-4">
-                  <div>
-                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">AI-Curated Question Bank</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Comprehensive questions from all uploaded notes</p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    <span className="bg-white dark:bg-gray-800 px-3 py-1 rounded-full border text-sm text-gray-500 dark:text-gray-400 w-fit">
-                      {subject.questionBank ? (
-                        (subject.questionBank.theory || subject.questionBank.practical) ? 
-                          Object.values(subject.questionBank.theory || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0) +
-                          Object.values(subject.questionBank.practical || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0)
-                        : Object.values(subject.questionBank).reduce((total: number, arr: any) => total + (arr?.length || 0), 0)
-                      ) : 0} Questions
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      <Button 
-                        onClick={async () => {
-                          setIsGeneratingMore(true);
-                          try {
-                            const { data } = await api.post(`/question-bank/${subjectId}/generate-more`, { 
-                              category: activeQBankTab,
-                              type: (subject?.questionBank?.theory || subject?.questionBank?.practical) ? activeQBankType : undefined
-                            });
-                            
-                            const message = data.fromDatabase 
-                              ? `Retrieved ${data.questions.length} ${activeQBankTab} questions from database`
-                              : `Generated ${data.questions.length} new ${activeQBankTab} questions`;
-                            
-                            toast.success(message);
-                            
-                            // Update state directly without refresh
-                            setSubject(prev => {
-                              if (!prev) return prev;
-                              const updated = { ...prev };
-                              if (!updated.questionBank) updated.questionBank = {};
-                              
-                              if (updated.questionBank.theory || updated.questionBank.practical) {
-                                if (!updated.questionBank[activeQBankType]) updated.questionBank[activeQBankType] = {};
-                                updated.questionBank[activeQBankType][activeQBankTab] = data.questions;
-                              } else {
-                                updated.questionBank[activeQBankTab] = data.questions;
-                              }
-                              
-                              return updated;
-                            });
-                          } catch (error: any) {
-                            toast.error(error.response?.data?.message || 'Failed to load questions.');
-                          } finally {
-                            setIsGeneratingMore(false);
-                          }
-                        }}
-                        variant="secondary"
-                        size="sm"
-                        isLoading={isGeneratingMore}
-                        className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
-                      >
-                        {isGeneratingMore ? `Loading...` : `+ More`}
-                      </Button>
-                      <Button 
-                        onClick={async () => {
-                          if (!confirm(`Reset all ${activeQBankTab.replace('Marker', ' Marker')} questions? This will clear existing questions and generate fresh ones.`)) return;
-                          
-                          setIsResetting(true);
-                          try {
-                            const { data } = await api.post(`/question-bank/${subjectId}/generate-more`, { 
-                              category: activeQBankTab,
-                              type: (subject?.questionBank?.theory || subject?.questionBank?.practical) ? activeQBankType : undefined,
-                              reset: true
-                            });
-                            
-                            toast.success(`Reset and generated ${data.questions.length} fresh ${activeQBankTab} questions!`);
-                            
-                            // Update state directly without refresh
-                            setSubject(prev => {
-                              if (!prev) return prev;
-                              const updated = { ...prev };
-                              if (!updated.questionBank) updated.questionBank = {};
-                              
-                              if (updated.questionBank.theory || updated.questionBank.practical) {
-                                if (!updated.questionBank[activeQBankType]) updated.questionBank[activeQBankType] = {};
-                                updated.questionBank[activeQBankType][activeQBankTab] = data.questions;
-                              } else {
-                                updated.questionBank[activeQBankTab] = data.questions;
-                              }
-                              
-                              return updated;
-                            });
-                          } catch (error: any) {
-                            toast.error(error.response?.data?.message || 'Failed to reset questions.');
-                          } finally {
-                            setIsResetting(false);
-                          }
-                        }}
-                        variant="secondary"
-                        size="sm"
-                        className="text-orange-600 hover:bg-orange-100 dark:text-orange-400 dark:hover:bg-orange-900/50 text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
-                        isLoading={isResetting}
-                      >
-                        {isResetting ? 'Resetting...' : '🔄'}
-                      </Button>
-                      <Button 
-                        onClick={async () => {
-                          if (!confirm('Regenerate entire Question Bank? This will replace all existing questions.')) return;
-                          
-                          setIsSubmitting(true);
-                          setQbankProgress({ message: 'Starting...', progress: 0 });
-                          try {
-                            await api.post(`/question-bank/${subjectId}`);
-                            toast.success('Question Bank regenerated successfully!');
-                            await fetchSubjectDetails();
-                          } catch (error: any) {
-                            toast.error(error.response?.data?.message || 'Failed to regenerate Question Bank.');
-                          } finally {
-                            setIsSubmitting(false);
-                            setQbankProgress({ message: '', progress: 0 });
-                          }
-                        }}
-                        variant="secondary"
-                        size="sm"
-                        isLoading={isSubmitting}
-                        className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
-                      >
-                        {isSubmitting ? `${qbankProgress.message.split(' ')[0]}...` : '🔄 All'}
-                      </Button>
+            <>
+              {/* AI-Style Header */}
+              <div className="glass-card rounded-2xl p-4 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-pink-500/10"></div>
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 glass-card rounded-xl flex items-center justify-center bg-gradient-to-br from-indigo-500/20 to-purple-500/20">
+                      <span className="text-xl">🎯</span>
                     </div>
+                    <div>
+                      <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">AI-Curated Question Bank</h2>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Comprehensive questions from all uploaded notes</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="glass-card px-3 py-1 rounded-full">
+                      <span className="text-xs font-medium bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                        {subject.questionBank ? (
+                          (subject.questionBank.theory || subject.questionBank.practical) ? 
+                            Object.values(subject.questionBank.theory || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0) +
+                            Object.values(subject.questionBank.practical || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0)
+                          : Object.values(subject.questionBank).reduce((total: number, arr: any) => total + (arr?.length || 0), 0)
+                        ) : 0} Total Questions
+                      </span>
+                    </div>
+                    
+                    <Button 
+                      onClick={async () => {
+                        setIsGeneratingMore(true);
+                        try {
+                          const { data } = await api.post(`/question-bank/${subjectId}/generate-more`, { 
+                            category: activeQBankTab,
+                            type: (subject?.questionBank?.theory || subject?.questionBank?.practical) ? activeQBankType : undefined
+                          });
+                          
+                          const message = data.fromDatabase 
+                            ? `Retrieved ${data.questions.length} ${activeQBankTab} questions from database`
+                            : `Generated ${data.questions.length} new ${activeQBankTab} questions`;
+                          
+                          toast.success(message);
+                          
+                          setSubject(prev => {
+                            if (!prev) return prev;
+                            const updated = { ...prev };
+                            if (!updated.questionBank) updated.questionBank = {};
+                            
+                            if (updated.questionBank.theory || updated.questionBank.practical) {
+                              if (!updated.questionBank[activeQBankType]) updated.questionBank[activeQBankType] = {};
+                              updated.questionBank[activeQBankType][activeQBankTab] = data.questions;
+                            } else {
+                              updated.questionBank[activeQBankTab] = data.questions;
+                            }
+                            
+                            return updated;
+                          });
+                        } catch (error: any) {
+                          toast.error(error.response?.data?.message || 'Failed to load questions.');
+                        } finally {
+                          setIsGeneratingMore(false);
+                        }
+                      }}
+                      isLoading={isGeneratingMore}
+                      className="modern-button bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-xl px-4 py-2 text-sm hover:scale-105 transition-all duration-300"
+                    >
+                      {isGeneratingMore ? 'Loading...' : '+ More'} {activeQBankTab.replace('Marker', ' Marker')}
+                    </Button>
                   </div>
                 </div>
               </div>
 
-              {/* Type Tabs (Theory/Practical) */}
+              {/* Theory/Practical Sections */}
               {(subject.questionBank.theory || subject.questionBank.practical) && (
-                <div className="bg-gray-100 dark:bg-gray-700/50 px-4 sm:px-6">
-                  <nav className="-mb-px flex space-x-1" aria-label="Type Tabs">
+                <div className="glass-card rounded-2xl p-1 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-indigo-500/5 to-purple-500/5"></div>
+                  <div className="relative z-10 flex gap-1">
                     {[
-                      { key: 'theory', label: 'Theory', icon: '📚' },
-                      { key: 'practical', label: 'Practical', icon: '⚡' }
-                    ].filter(tab => subject.questionBank[tab.key]).map(tab => {
-                      const count = Object.values(subject.questionBank[tab.key] || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0);
+                      { key: 'theory', label: 'Theory', icon: '📚', gradient: 'from-blue-500 to-indigo-500' },
+                      { key: 'practical', label: 'Practical', icon: '⚡', gradient: 'from-purple-500 to-pink-500' }
+                    ].filter(tab => {
+                      const tabData = subject.questionBank[tab.key];
+                      return tabData && Object.keys(tabData).length > 0;
+                    }).map(tab => {
+                      const count = Object.values(subject.questionBank[tab.key] || {}).reduce((total: number, arr: any) => total + (Array.isArray(arr) ? arr.length : 0), 0);
                       return (
                         <button
                           key={tab.key}
                           onClick={() => setActiveQBankType(tab.key)}
-                          className={`${activeQBankType === tab.key 
-                            ? 'border-purple-500 text-purple-600 bg-white dark:bg-gray-800' 
-                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                          } whitespace-nowrap py-2 px-4 border-b-2 font-medium text-sm transition-all duration-200 flex items-center gap-2`}
-                        >
-                          <span>{tab.icon}</span>
-                          {tab.label}
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          className={`flex-1 p-3 rounded-xl transition-all duration-300 hover:scale-105 ${
                             activeQBankType === tab.key 
-                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300' 
-                              : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                          }`}>
-                            {count}
-                          </span>
+                              ? `bg-gradient-to-r ${tab.gradient} text-white shadow-lg` 
+                              : 'glass-card hover:bg-white/50 dark:hover:bg-gray-800/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="text-lg">{tab.icon}</span>
+                            <div>
+                              <div className="font-bold text-sm">{tab.label}</div>
+                              <div className={`text-xs ${activeQBankType === tab.key ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>
+                                {count} Questions
+                              </div>
+                            </div>
+                          </div>
                         </button>
                       );
                     })}
-                  </nav>
+                  </div>
                 </div>
               )}
 
-              {/* Category Tabs */}
-              <div className="bg-gray-50 dark:bg-gray-800/50 px-4 sm:px-6">
-                <nav className="-mb-px flex space-x-1 overflow-x-auto" aria-label="Tabs">
-                  {[
-                    { key: 'oneMarker', label: '1 Marker' },
-                    { key: 'threeMarker', label: '3 Marker' },
-                    { key: 'fourMarker', label: '4 Marker' },
-                    { key: 'fiveMarker', label: '5 Marker' }
-                  ].filter(tab => {
-                    const currentBank = (subject.questionBank.theory || subject.questionBank.practical) ? subject.questionBank[activeQBankType] : subject.questionBank;
-                    return currentBank && currentBank[tab.key]?.length > 0;
-                  }).map(tab => {
-                    const currentBank = (subject.questionBank.theory || subject.questionBank.practical) ? subject.questionBank[activeQBankType] : subject.questionBank;
-                    const count = currentBank?.[tab.key]?.length || 0;
-                    return (
-                      <button
-                        key={tab.key}
-                        onClick={() => setActiveQBankTab(tab.key)}
-                        className={`${activeQBankTab === tab.key 
-                          ? 'border-indigo-500 text-indigo-600 bg-white dark:bg-gray-800' 
-                          : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-800/50'
-                        } whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-all duration-200 rounded-t-lg flex items-center gap-2`}
-                      >
-                        <span className={`w-2 h-2 rounded-full ${
-                          activeQBankTab === tab.key ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'
-                        }`}></span>
-                        {tab.label}
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          activeQBankTab === tab.key 
-                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' 
-                            : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                        }`}>
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </nav>
+              {/* Marker Categories Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { key: 'oneMarker', label: '1 Marker' },
+                  { key: 'threeMarker', label: '3 Marker' },
+                  { key: 'fourMarker', label: '4 Marker' },
+                  { key: 'fiveMarker', label: '5 Marker' }
+                ].filter(tab => {
+                  const currentBank = (subject.questionBank.theory || subject.questionBank.practical) ? subject.questionBank[activeQBankType] : subject.questionBank;
+                  return currentBank && currentBank[tab.key]?.length > 0;
+                }).map(tab => {
+                  const currentBank = (subject.questionBank.theory || subject.questionBank.practical) ? subject.questionBank[activeQBankType] : subject.questionBank;
+                  const count = currentBank?.[tab.key]?.length || 0;
+                  const gradients = {
+                    'oneMarker': 'from-green-500 to-emerald-500',
+                    'threeMarker': 'from-yellow-500 to-orange-500', 
+                    'fourMarker': 'from-orange-500 to-red-500',
+                    'fiveMarker': 'from-red-500 to-pink-500'
+                  };
+                  const icons = {
+                    'oneMarker': '🟢',
+                    'threeMarker': '🟡',
+                    'fourMarker': '🟠', 
+                    'fiveMarker': '🔴'
+                  };
+                  
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveQBankTab(tab.key)}
+                      className={`glass-card p-4 rounded-xl transition-all duration-300 hover:scale-105 relative overflow-hidden ${
+                        activeQBankTab === tab.key ? 'ring-2 ring-indigo-500 shadow-xl' : ''
+                      }`}
+                    >
+                      <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${gradients[tab.key as keyof typeof gradients]}`}></div>
+                      <div className="text-center">
+                        <div className="text-xl mb-1">{icons[tab.key as keyof typeof icons]}</div>
+                        <div className="font-bold text-sm text-gray-900 dark:text-gray-100">{tab.label}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{count} Questions</div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Questions Content */}
-              <div className="p-3 sm:p-6">
-                <div className="space-y-3 sm:space-y-4">
-                  {(() => {
-                    const currentBank = (subject.questionBank.theory || subject.questionBank.practical) ? subject.questionBank[activeQBankType] : subject.questionBank;
-                    return currentBank?.[activeQBankTab]?.map((q: any, index: number) => {
-                      const isPinned = pinnedQuestions.some(
-                        pin => pin.questionIndex === index && 
-                               pin.category === activeQBankTab && 
-                               pin.type === ((subject.questionBank.theory || subject.questionBank.practical) ? activeQBankType : undefined)
-                      );
-                      
-                      return (
-                        <QBankQuestionCard 
-                          key={index} 
-                          question={q} 
-                          index={index}
-                          subjectId={subjectId as string}
-                          category={activeQBankTab}
-                          type={(subject.questionBank.theory || subject.questionBank.practical) ? activeQBankType : undefined}
-                          isPinned={isPinned}
-                          onPinToggle={(pinned) => {
-                            if (pinned) {
-                              setPinnedQuestions(prev => [...prev, {
-                                subjectId,
-                                questionIndex: index,
-                                category: activeQBankTab,
-                                type: (subject.questionBank.theory || subject.questionBank.practical) ? activeQBankType : undefined,
-                                questionData: q
-                              }]);
-                            } else {
-                              setPinnedQuestions(prev => prev.filter(
-                                pin => !(pin.questionIndex === index && 
-                                         pin.category === activeQBankTab && 
-                                         pin.type === ((subject.questionBank.theory || subject.questionBank.practical) ? activeQBankType : undefined))
-                              ));
-                            }
-                          }}
-                        />
-                      );
-                    });
-                  })()}
+              {/* Questions Display */}
+              <div className="glass-card rounded-3xl p-6 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5"></div>
+                <div className="relative z-10">
+                  <div className="mb-6">
+                    <h3 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                      {activeQBankTab.replace('Marker', ' Marker')} Questions
+                      {(subject.questionBank.theory || subject.questionBank.practical) && (
+                        <span className="ml-2 text-sm font-normal text-gray-500">({activeQBankType})</span>
+                      )}
+                    </h3>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {(() => {
+                      const currentBank = (subject.questionBank.theory || subject.questionBank.practical) ? subject.questionBank[activeQBankType] : subject.questionBank;
+                      return currentBank?.[activeQBankTab]?.map((q: any, index: number) => {
+                        const isPinned = pinnedQuestions.some(
+                          pin => pin.questionIndex === index && 
+                                 pin.category === activeQBankTab && 
+                                 pin.type === ((subject.questionBank.theory || subject.questionBank.practical) ? activeQBankType : undefined)
+                        );
+                        
+                        return (
+                          <QBankQuestionCard 
+                            key={index} 
+                            question={q} 
+                            index={index}
+                            subjectId={subjectId as string}
+                            category={activeQBankTab}
+                            type={(subject.questionBank.theory || subject.questionBank.practical) ? activeQBankType : undefined}
+                            isPinned={isPinned}
+                            allQuestions={currentBank?.[activeQBankTab]}
+                            currentIndex={index}
+                            onPinToggle={(pinned) => {
+                              if (pinned) {
+                                setPinnedQuestions(prev => [...prev, {
+                                  subjectId,
+                                  questionIndex: index,
+                                  category: activeQBankTab,
+                                  type: (subject.questionBank.theory || subject.questionBank.practical) ? activeQBankType : undefined,
+                                  questionData: q
+                                }]);
+                              } else {
+                                setPinnedQuestions(prev => prev.filter(
+                                  pin => !(pin.questionIndex === index && 
+                                           pin.category === activeQBankTab && 
+                                           pin.type === ((subject.questionBank.theory || subject.questionBank.practical) ? activeQBankType : undefined))
+                                ));
+                              }
+                            }}
+                          />
+                        );
+                      });
+                    })()}
+                  </div>
                 </div>
-                
-
               </div>
-            </div>
+            </>
           ) : (
-            <div className="p-8 text-center">
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/30 rounded-2xl p-8">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FiTarget className="w-8 h-8 text-white" />
+            <div className="glass-card rounded-3xl p-12 text-center relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-pink-500/10"></div>
+              <div className="relative z-10">
+                <div className="w-24 h-24 glass-card rounded-3xl flex items-center justify-center mx-auto mb-6 bg-gradient-to-br from-indigo-500/20 to-purple-500/20">
+                  <span className="text-4xl">🎯</span>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Generate Your Question Bank</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                <h3 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">Generate Your Question Bank</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto text-lg">
                   Analyze all notes in this subject to generate comprehensive questions with unit combinations for better exam preparation.
                 </p>
                 <Button 
@@ -675,7 +779,7 @@ export default function SubjectDetailPage() {
                     }
                   }} 
                   isLoading={isSubmitting}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-3"
+                  className="modern-button bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white text-lg px-8 py-4 rounded-2xl hover:scale-105 transition-all duration-300 shadow-xl"
                 >
                   {isSubmitting ? `${qbankProgress.message} (${qbankProgress.progress}%)` : '🚀 Generate Question Bank'}
                 </Button>
@@ -686,7 +790,7 @@ export default function SubjectDetailPage() {
       )}
 
       {activeTab === 'studyplan' && (
-        <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow">
+        <div className="glass-card p-6 md:p-8 rounded-3xl">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
             <h2 className="text-xl md:text-2xl font-semibold">AI Study Plan</h2>
             {studyPlan && (
@@ -775,7 +879,7 @@ export default function SubjectDetailPage() {
       )}
 
       {activeTab === 'compare' && (
-        <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow">
+        <div className="glass-card p-6 md:p-8 rounded-3xl">
           <h2 className="text-xl md:text-2xl font-semibold mb-4">Compare Concepts</h2>
           {comparison ? (
             <div className="space-y-4">
@@ -870,7 +974,7 @@ export default function SubjectDetailPage() {
       )}
 
       {activeTab === 'mcq' && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div className="glass-card rounded-3xl overflow-hidden">
           <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
@@ -999,7 +1103,7 @@ export default function SubjectDetailPage() {
       )}
 
       {activeTab === 'examcreator' && (
-        <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-lg shadow">
+        <div className="glass-card p-6 md:p-8 rounded-3xl">
           <h2 className="text-xl md:text-2xl font-semibold mb-4">Exam Paper Creator</h2>
           {!checkFeatureAccess('examCreator') && (
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
@@ -1104,78 +1208,99 @@ export default function SubjectDetailPage() {
                   
                   const { data } = await api.post(`/ai/generate-exam/${subjectId}`, config);
                   
-                  // Create Word document
-                  // Show download options
-                  const downloadPDF = () => {
-                    const examContent = `
+                  // Enhanced exam paper generation with question snapshots
+                  const generateExamWithSnapshots = async (format: 'pdf' | 'word') => {
+                    try {
+                      // Import the exam generator utility
+                      const { generateExamPaper } = await import('@/utils/examGenerator');
+                      
+                      // Parse the generated exam data to extract questions
+                      const examConfig = {
+                        title: `${subject?.name || 'Subject'} - Final Examination`,
+                        subject: subject?.name || 'Subject',
+                        duration: `${config.duration} Hours`,
+                        totalMarks: config.totalMarks,
+                        instructions: [
+                          'Read all questions carefully before attempting.',
+                          'Answer all questions.',
+                          'Write clearly and legibly.',
+                          'Manage your time effectively.',
+                          'Show all working where applicable.',
+                          'MCQ questions carry 1 mark each.',
+                          'All questions are compulsory.'
+                        ],
+                        questions: data.questions || {
+                          oneMarker: data.mcqQuestions || [],
+                          threeMarker: data.shortQuestions || [],
+                          fourMarker: data.mediumQuestions || [],
+                          fiveMarker: data.longQuestions || []
+                        }
+                      };
+                      
+                      await generateExamPaper(examConfig, format);
+                      toast.success(`Professional exam paper generated as ${format.toUpperCase()} with question snapshots!`);
+                    } catch (error) {
+                      console.error('Enhanced generation failed, falling back to basic:', error);
+                      // Fallback to basic generation
+                      const examContent = `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Exam Paper</title>
+    <title>${subject?.name || 'Exam'} Paper</title>
     <style>
         body { font-family: 'Times New Roman', serif; margin: 1in; line-height: 1.6; }
-        .header { text-align: center; margin-bottom: 30px; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+        .exam-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+        .exam-info { display: flex; justify-content: space-between; margin: 15px 0; }
         .section { margin: 20px 0; }
-        .question { margin: 15px 0; }
+        .question { margin: 15px 0; page-break-inside: avoid; }
         .mcq-option { margin-left: 20px; }
         h1, h2 { color: #333; }
         .instructions { border: 1px solid #ccc; padding: 15px; margin: 20px 0; background-color: #f9f9f9; }
+        .code-block { background-color: #f5f5f5; border: 1px solid #ddd; padding: 10px; font-family: 'Courier New', monospace; }
     </style>
 </head>
 <body>
+    <div class="header">
+        <div class="exam-title">${subject?.name || 'SUBJECT'} - FINAL EXAMINATION</div>
+        <div class="exam-info">
+            <span><strong>Duration:</strong> ${config.duration} Hours</span>
+            <span><strong>Total Marks:</strong> ${config.totalMarks}</span>
+        </div>
+    </div>
+    <div class="instructions">
+        <h3>Instructions:</h3>
+        <ul>
+            <li>Read all questions carefully before attempting.</li>
+            <li>Answer all questions.</li>
+            <li>Write clearly and legibly.</li>
+            <li>Manage your time effectively.</li>
+            <li>Show all working where applicable.</li>
+        </ul>
+    </div>
     ${sanitizeHTML(data.examPaper.replace(/\n/g, '<br>'))}
 </body>
 </html>`;
-                    
-                    const blob = new Blob([examContent], { type: 'text/html' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${subject?.name || 'Exam'}_Paper.html`;
-                    a.click();
-                    window.URL.revokeObjectURL(url);
+                      
+                      const mimeType = format === 'word' ? 'application/msword' : 'text/html';
+                      const extension = format === 'word' ? 'doc' : 'html';
+                      
+                      const blob = new Blob([examContent], { type: mimeType });
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${subject?.name || 'Exam'}_Paper.${extension}`;
+                      a.click();
+                      window.URL.revokeObjectURL(url);
+                      
+                      toast.success(`Exam paper downloaded as ${format.toUpperCase()} file!`);
+                    }
                   };
                   
-                  const downloadWord = () => {
-                    const examContent = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Exam Paper</title>
-    <style>
-        body { font-family: 'Times New Roman', serif; margin: 1in; line-height: 1.6; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .section { margin: 20px 0; }
-        .question { margin: 15px 0; }
-        .mcq-option { margin-left: 20px; }
-        h1, h2 { color: #333; }
-        .instructions { border: 1px solid #ccc; padding: 15px; margin: 20px 0; background-color: #f9f9f9; }
-    </style>
-</head>
-<body>
-    ${sanitizeHTML(data.examPaper.replace(/\n/g, '<br>'))}
-</body>
-</html>`;
-                    
-                    const blob = new Blob([examContent], { type: 'application/msword' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${subject?.name || 'Exam'}_Paper.doc`;
-                    a.click();
-                  };
-                  
-                  // Show options dialog
-                  const choice = confirm('Choose download format:\nOK = PDF\nCancel = Word Document');
-                  if (choice) {
-                    downloadPDF();
-                    toast.success('Exam paper downloaded as HTML file!');
-                  } else {
-                    downloadWord();
-                    toast.success('Exam paper downloaded as Word document!');
-                  }
+                  // Show format selection dialog
+                  const formatChoice = confirm('Choose download format:\n\nOK = PDF (Professional with snapshots)\nCancel = Word Document (Editable)');
+                  await generateExamWithSnapshots(formatChoice ? 'pdf' : 'word');
                 } catch (error: any) {
                   toast.error(error.response?.data?.message || 'Failed to generate exam paper.');
                 } finally {
@@ -1186,22 +1311,22 @@ export default function SubjectDetailPage() {
               className="bg-green-600 hover:bg-green-700"
               disabled={!checkFeatureAccess('examCreator')}
             >
-              🎯 Generate Exam Paper
+              📄 Generate Exam Paper
             </Button>
           </div>
         </div>
       )}
 
       {activeTab === 'pinned' && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+        <div className="glass-card rounded-3xl overflow-hidden">
           <div className="bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 p-3 sm:p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex flex-col gap-4">
               <div>
-                <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">Pinned Questions</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Your saved questions for quick practice</p>
+                <h3 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-slate-100">Pinned Questions</h3>
+                <p className="text-sm text-slate-800 dark:text-slate-200 mt-1">Your saved questions for quick practice</p>
               </div>
               <div className="flex items-center gap-3">
-                <span className="bg-white dark:bg-gray-800 px-3 py-1 rounded-full border text-sm text-gray-500 dark:text-gray-400 w-fit">
+                <span className="glass-card px-3 py-1 rounded-full border text-sm text-slate-900 dark:text-slate-100 w-fit">
                   {pinnedQuestions.length} Pinned Questions
                 </span>
                 {pinnedQuestions.length > 0 && (
@@ -1246,7 +1371,7 @@ export default function SubjectDetailPage() {
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300">
                           📌 Pinned
                         </span>
-                        <span className="text-gray-600 dark:text-gray-400">
+                        <span className="text-slate-700 dark:text-slate-300">
                           {pin.category.replace('Marker', ' Marker')} • {pin.type ? pin.type.charAt(0).toUpperCase() + pin.type.slice(1) : 'General'}
                         </span>
                       </div>
@@ -1259,6 +1384,8 @@ export default function SubjectDetailPage() {
                         category={pin.category}
                         type={pin.type}
                         isPinned={true}
+                        allQuestions={pinnedQuestions.map(p => p.questionData)}
+                        currentIndex={index}
                         onPinToggle={(pinned) => {
                           if (!pinned) {
                             setPinnedQuestions(prev => prev.filter(
@@ -1278,8 +1405,8 @@ export default function SubjectDetailPage() {
                 <div className="w-16 h-16 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
                   📌
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">No Pinned Questions</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">No Pinned Questions</h3>
+                <p className="text-slate-800 dark:text-slate-200 mb-6 max-w-md mx-auto">
                   Pin important questions from the Q-Bank to create your personalized practice collection.
                 </p>
                 <Button 

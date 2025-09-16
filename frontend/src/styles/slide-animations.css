@@ -1,0 +1,31 @@
+/* Slide in from top animation */
+@keyframes slideInFromTop {
+  0% {
+    transform: translateY(-100px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.slide-in-top {
+  animation: slideInFromTop 0.6s ease-out forwards;
+}
+
+/* Staggered animations for multiple elements */
+.slide-in-delay-1 {
+  animation: slideInFromTop 0.6s ease-out 0.1s forwards;
+  opacity: 0;
+}
+
+.slide-in-delay-2 {
+  animation: slideInFromTop 0.6s ease-out 0.2s forwards;
+  opacity: 0;
+}
+
+.slide-in-delay-3 {
+  animation: slideInFromTop 0.6s ease-out 0.3s forwards;
+  opacity: 0;
+}

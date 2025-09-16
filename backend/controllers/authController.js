@@ -7,7 +7,8 @@ import crypto from 'crypto';
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password } = req.body;
   
-  if (!email || !email.includes('@')) {
+  // Type validation to prevent type confusion attacks
+  if (!email || typeof email !== 'string' || !email.includes('@')) {
     res.status(400); throw new Error('Please provide a valid email address.');
   }
 
@@ -343,4 +344,64 @@ const calculateUpgradeCost = asyncHandler(async (req, res) => {
   });
 });
 
-export { registerUser, authUser, verifyEmail, getUserProfile, getSubscriptionStatus, calculateUserPlanSwitch, switchUserPlan, calculateUpgradeCost };
+const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email: email.toLowerCase() });
+
+  if (!user) {
+    res.status(404);
+    throw new Error('No user found with that email address');
+  }
+
+  const resetToken = user.createPasswordResetToken();
+  await user.save({ validateBeforeSave: false });
+
+  const resetURL = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+  const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please click on the following link to reset your password: ${resetURL}\n\nIf you did not request this, please ignore this email and your password will remain unchanged.`;
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: 'ExamBuddy Password Reset',
+      message,
+    });
+    res.status(200).json({ message: 'Password reset email sent successfully' });
+  } catch (err) {
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+    res.status(500);
+    throw new Error('Email could not be sent');
+  }
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+  const hashedToken = crypto.createHash('sha256').update(req.params.token).digest('hex');
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: Date.now() },
+  });
+
+  if (!user) {
+    res.status(400);
+    throw new Error('Token is invalid or has expired');
+  }
+
+  user.password = req.body.password;
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+  await user.save();
+
+  res.status(200).json({
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    isVerified: user.isVerified,
+    subscription: user.subscription,
+    usage: user.usage,
+    token: generateToken(user._id),
+  });
+});
+
+export { registerUser, authUser, verifyEmail, getUserProfile, getSubscriptionStatus, calculateUserPlanSwitch, switchUserPlan, calculateUpgradeCost, forgotPassword, resetPassword };

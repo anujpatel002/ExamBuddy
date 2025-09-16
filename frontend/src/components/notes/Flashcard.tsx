@@ -1,45 +1,76 @@
 'use client';
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { FiEye, FiX, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { formatCodeContent, containsCode, containsSteps, getCodeStyles } from '@/utils/codeFormatter';
 
 interface FlashcardProps {
   flashcard: { question: string; answer: string; };
   allFlashcards?: { question: string; answer: string; }[];
   currentIndex?: number;
+  sectionType?: 'theory' | 'practical';
 }
 
-const Flashcard = ({ flashcard, allFlashcards = [], currentIndex = 0 }: FlashcardProps) => {
+const Flashcard = ({ flashcard, allFlashcards = [], currentIndex = 0, sectionType }: FlashcardProps) => {
   const [showViewer, setShowViewer] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(currentIndex);
   const [translateX, setTranslateX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  
+  // Keyboard navigation and body scroll lock
+  useEffect(() => {
+    if (showViewer) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setShowViewer(false);
+        } else if (e.key === 'ArrowRight' && allFlashcards && viewerIndex < allFlashcards.length - 1) {
+          nextCard();
+        } else if (e.key === 'ArrowLeft' && viewerIndex > 0) {
+          prevCard();
+        }
+      };
+      
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      };
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [showViewer, viewerIndex, allFlashcards]);
 
   const nextCard = () => {
-    if (viewerIndex < allFlashcards.length - 1 && !isTransitioning) {
-      setIsTransitioning(true);
+    if (allFlashcards && viewerIndex < allFlashcards.length - 1) {
       setViewerIndex(viewerIndex + 1);
-      setTimeout(() => setIsTransitioning(false), 300);
     }
   };
 
   const prevCard = () => {
-    if (viewerIndex > 0 && !isTransitioning) {
-      setIsTransitioning(true);
+    if (viewerIndex > 0) {
       setViewerIndex(viewerIndex - 1);
-      setTimeout(() => setIsTransitioning(false), 300);
     }
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (isTransitioning) return;
     const touch = e.touches[0];
     (e.currentTarget as any).startX = touch.clientX;
     setIsDragging(true);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || isTransitioning) return;
+    if (!isDragging) return;
     const touch = e.touches[0];
     const startX = (e.currentTarget as any).startX;
     const diffX = startX - touch.clientX;
@@ -51,7 +82,7 @@ const Flashcard = ({ flashcard, allFlashcards = [], currentIndex = 0 }: Flashcar
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!isDragging || isTransitioning) return;
+    if (!isDragging) return;
     
     const touch = e.changedTouches[0];
     const startX = (e.currentTarget as any).startX;
@@ -60,7 +91,7 @@ const Flashcard = ({ flashcard, allFlashcards = [], currentIndex = 0 }: Flashcar
     setIsDragging(false);
     setTranslateX(0);
     
-    if (Math.abs(diffX) > 80) {
+    if (Math.abs(diffX) > 80 && allFlashcards) {
       if (diffX > 0 && viewerIndex < allFlashcards.length - 1) {
         nextCard();
       } else if (diffX < 0 && viewerIndex > 0) {
@@ -71,121 +102,127 @@ const Flashcard = ({ flashcard, allFlashcards = [], currentIndex = 0 }: Flashcar
 
 
 
+
+
+
+
   return (
     <>
-      <div className="w-full bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
-        <div className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-            <span className="text-sm font-bold text-blue-700 dark:text-blue-300 tracking-wide">QUESTION</span>
+      <style dangerouslySetInnerHTML={{ __html: getCodeStyles() }} />
+      <div className="w-full glass-card rounded-3xl relative overflow-hidden group hover:scale-105 transition-all duration-500">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+        <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-xl float"></div>
+        
+        <div className="relative z-10 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-2 h-8 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full"></div>
+            <span className="text-sm font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent tracking-wide">QUESTION</span>
           </div>
-          <p className={`font-semibold text-gray-800 dark:text-gray-200 leading-relaxed break-words mb-6 ${
+          <div className={`font-semibold text-gray-800 dark:text-gray-100 leading-relaxed break-words mb-6 max-h-32 overflow-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent ${
             flashcard.question.length > 150 ? 'text-sm' : 
             flashcard.question.length > 100 ? 'text-base' : 
             flashcard.question.length > 50 ? 'text-lg' : 'text-xl'
           }`}>
-            {flashcard.question}
-          </p>
+            <p>{flashcard.question}</p>
+          </div>
           
-          <div className="flex justify-center">
+          <div className="center-content">
             <button
-              onClick={() => setShowViewer(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-all duration-200 hover:scale-105 shadow-md"
+              onClick={() => {
+                setShowViewer(true);
+                setTimeout(() => {
+                  const contentDiv = document.querySelector('.flashcard-content');
+                  if (contentDiv) contentDiv.scrollTop = 0;
+                }, 300);
+              }}
+              className="center-content gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-2xl font-medium transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
             >
-              <FiEye className="w-4 h-4" /> View Answer
+              <FiEye className="w-4 h-4" />
+              <span>View Answer</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Flashcard Viewer */}
-      {showViewer && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="relative w-full h-full flex items-center justify-center p-4">
-            {/* Navigation Arrows */}
-            {allFlashcards.length > 1 && (
-              <>
+      {showViewer && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-gray-800 flex flex-col overflow-hidden flashcard-popup" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, width: '100vw', height: '100dvh', minHeight: '100dvh' }}>
+            {/* Header - Always Show */}
+            <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-indigo-600">
+              <div className="flex justify-between items-center p-4">
+                <div className="flex items-center gap-4">
+                  <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium text-white">
+                    {allFlashcards && allFlashcards.length > 0 ? `${viewerIndex + 1} of ${allFlashcards.length}` : '1 of 1'}
+                  </span>
+                  <div className="flex gap-2 md:hidden">
+                    <button
+                      onClick={prevCard}
+                      disabled={!allFlashcards || allFlashcards.length <= 1 || viewerIndex === 0}
+                      className="p-2 bg-white/20 hover:bg-white/30 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <FiChevronLeft className="w-4 h-4 text-white" />
+                    </button>
+                    <button
+                      onClick={nextCard}
+                      disabled={!allFlashcards || allFlashcards.length <= 1 || viewerIndex === allFlashcards.length - 1}
+                      className="p-2 bg-white/20 hover:bg-white/30 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <FiChevronRight className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowViewer(false)}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <FiX className="w-6 h-6 text-white" />
+                </button>
+              </div>
+              <div className="px-4 pb-3">
+                <span className="text-sm font-medium text-white/80">Q & A</span>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 bg-gray-800 overflow-y-auto flashcard-content" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+              <div className="max-w-none space-y-8 p-6 pt-12">
+                {/* Question */}
+                <div className="p-6 bg-blue-900/20 rounded-xl border-l-4 border-blue-500">
+                  <h3 className="text-lg font-bold text-blue-400 mb-4">QUESTION</h3>
+                  <div className="text-gray-200 leading-relaxed text-base overflow-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                    <p className="text-base leading-7">{allFlashcards?.[viewerIndex]?.question || flashcard.question}</p>
+                  </div>
+                </div>
+                
+                {/* Answer */}
+                <div className="p-6 bg-green-900/20 rounded-xl border-l-4 border-green-500">
+                  <h3 className="text-lg font-bold text-green-400 mb-4">ANSWER</h3>
+                  <div className="prose prose-invert prose-base max-w-none text-gray-200 overflow-auto whitespace-pre-wrap break-words" style={{ WebkitOverflowScrolling: 'touch', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                    <div className="text-base leading-7" dangerouslySetInnerHTML={{ __html: allFlashcards?.[viewerIndex]?.answer || flashcard.answer }} />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Desktop Navigation - Always Show */}
+              <div className="hidden md:flex justify-center gap-4 p-6 mt-8 border-t border-gray-700">
                 <button
                   onClick={prevCard}
-                  disabled={viewerIndex === 0}
-                  className="absolute left-4 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
+                  disabled={!allFlashcards || allFlashcards.length <= 1 || viewerIndex === 0}
+                  className="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-base font-medium text-white"
                 >
-                  <FiChevronLeft className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+                  Previous
                 </button>
                 <button
                   onClick={nextCard}
-                  disabled={viewerIndex === allFlashcards.length - 1}
-                  className="absolute right-4 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
+                  disabled={!allFlashcards || allFlashcards.length <= 1 || viewerIndex === allFlashcards.length - 1}
+                  className="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-base font-medium text-white"
                 >
-                  <FiChevronRight className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+                  Next
                 </button>
-              </>
-            )}
-
-            {/* Close Button */}
-            <button
-              onClick={() => setShowViewer(false)}
-              className="absolute top-4 right-4 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-10"
-            >
-              <FiX className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-            </button>
-
-            {/* Card Container */}
-            <div className="relative w-full max-w-4xl h-[90vh] overflow-hidden">
-              <div 
-                className="flex h-full transition-transform duration-300 ease-out"
-                style={{ 
-                  transform: `translateX(-${viewerIndex * 100}%)`,
-                }}
-              >
-                {allFlashcards.map((card, index) => (
-                  <div 
-                    key={index} 
-                    className="w-full flex-shrink-0 px-4 h-full"
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                  >
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full h-full overflow-y-auto">
-                      <div className="p-8">
-                        {/* Counter */}
-                        {allFlashcards.length > 1 && (
-                          <div className="text-center mb-6">
-                            <span className="bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full text-sm text-gray-600 dark:text-gray-400">
-                              {index + 1} of {allFlashcards.length}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {/* Question */}
-                        <div className="mb-6 p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                            <span className="text-sm font-bold text-blue-700 dark:text-blue-300 tracking-wide">QUESTION</span>
-                          </div>
-                          <p className="text-lg text-gray-800 dark:text-gray-200 leading-relaxed">
-                            {card.question}
-                          </p>
-                        </div>
-                        
-                        {/* Answer */}
-                        <div className="p-6 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                            <span className="text-sm font-bold text-green-700 dark:text-green-300 tracking-wide">ANSWER</span>
-                          </div>
-                          <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap break-words">
-                            {card.answer.replace(/<[^>]*>/g, '')}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
-          </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

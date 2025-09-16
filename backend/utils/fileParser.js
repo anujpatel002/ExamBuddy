@@ -1,9 +1,27 @@
 import mammoth from 'mammoth';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Simplified OCR function - placeholder for now
-const extractTextWithOCR = async (pdfBuffer) => {
-  console.log('OCR extraction attempted - requires proper setup');
-  return 'OCR functionality needs proper configuration. Please convert your PDF to text format or use a text-based PDF for best results with Gujarati content.';
+// Use Gemini API for PDF processing like Google NotebookLM
+const extractTextWithGemini = async (pdfBuffer) => {
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          data: pdfBuffer.toString('base64'),
+          mimeType: 'application/pdf'
+        }
+      },
+      'Extract all text content from this PDF document. Preserve the structure and formatting. Return only the extracted text without any additional commentary.'
+    ]);
+    
+    return result.response.text();
+  } catch (error) {
+    console.error('Gemini PDF extraction failed:', error);
+    throw error;
+  }
 };
 
 export const extractTextFromFile = async (file) => {
@@ -77,29 +95,51 @@ export const extractTextFromFile = async (file) => {
             .trim();
           
           console.log('PDF text extraction result, length:', cleanText.length);
-          console.log('First 200 chars:', cleanText.substring(0, 200));
           
-          // Check if extracted text is meaningful (not just garbled characters)
+          // Check if extracted text is meaningful
           const meaningfulTextRatio = (cleanText.match(/[a-zA-Z\u0900-\u097F\u0A80-\u0AFF\s]/g) || []).length / cleanText.length;
-          console.log('Meaningful text ratio:', meaningfulTextRatio);
           
-          // If text is too short or mostly garbled, treat as image-based PDF
+          // If text is too short or mostly garbled, use Gemini API
           if (cleanText.length < 100 || meaningfulTextRatio < 0.5) {
-            console.log('PDF appears to be image-based (short or garbled text)');
-            return 'INTERNAL_OCR_REQUIRED';
+            console.log('PDF appears to be image-based, using Gemini API extraction...');
+            try {
+              const geminiText = await extractTextWithGemini(file.buffer);
+              if (geminiText && geminiText.length > 50) {
+                console.log('Gemini extraction successful, length:', geminiText.length);
+                return geminiText;
+              }
+            } catch (geminiError) {
+              console.error('Gemini extraction failed:', geminiError);
+            }
+            return 'Unable to extract text from this PDF. The document may be image-based or corrupted.';
           }
-          
-          console.log('Contains Gujarati:', /[\u0A80-\u0AFF]+/.test(cleanText));
-          console.log('Contains Hindi:', /[\u0900-\u097F]+/.test(cleanText));
           
           return cleanText;
         } else {
-          console.log('PDF appears to be image-based (no extractable text)');
-          return 'INTERNAL_OCR_REQUIRED';
+          console.log('No text extracted with pdf-parse, trying Gemini API...');
+          try {
+            const geminiText = await extractTextWithGemini(file.buffer);
+            if (geminiText && geminiText.length > 50) {
+              console.log('Gemini extraction successful, length:', geminiText.length);
+              return geminiText;
+            }
+          } catch (geminiError) {
+            console.error('Gemini extraction failed:', geminiError);
+          }
+          return 'Unable to extract text from this PDF. Please try a different file format.';
         }
       } catch (pdfError) {
-        console.error('PDF parsing failed:', pdfError);
-        return 'PDF uploaded successfully but text extraction failed. You can still use this file for other features.';
+        console.error('PDF parsing failed, trying Gemini API as fallback:', pdfError);
+        try {
+          const geminiText = await extractTextWithGemini(file.buffer);
+          if (geminiText && geminiText.length > 50) {
+            console.log('Gemini fallback extraction successful, length:', geminiText.length);
+            return geminiText;
+          }
+        } catch (geminiError) {
+          console.error('Gemini fallback failed:', geminiError);
+        }
+        return 'Unable to extract text from this PDF. Please ensure the file is not corrupted and try again.';
       }
     } 
     else if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {

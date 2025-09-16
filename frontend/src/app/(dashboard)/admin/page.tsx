@@ -154,16 +154,19 @@ export default function AdminPanel() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 page-transition">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 rounded-lg">
-        <h1 className="text-3xl font-bold mb-2">Admin Panel 👑</h1>
-        <p className="text-purple-100">Manage users, monitor system performance, and control platform settings</p>
+      <div className="glass-card p-8 rounded-3xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-full blur-xl float"></div>
+        <div className="relative z-10">
+          <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 bg-clip-text text-transparent">Admin Panel 👑</h1>
+          <p className="text-gray-600 dark:text-gray-400 text-lg">Manage users, monitor system performance, and control platform settings</p>
+        </div>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex overflow-x-auto scrollbar-hide">
+      <div className="glass-card rounded-2xl p-2">
+        <nav className="flex space-x-2 overflow-x-auto scrollbar-hide">
           {[
             { id: 'dashboard', label: 'Dashboard', icon: FiBarChart },
             { id: 'users', label: 'Users', icon: FiUsers },
@@ -175,13 +178,13 @@ export default function AdminPanel() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1 md:gap-2 py-3 md:py-4 px-2 md:px-4 border-b-2 font-medium text-xs md:text-sm whitespace-nowrap min-w-0 flex-shrink-0 ${
+              className={`flex items-center gap-2 py-3 px-4 rounded-xl font-medium text-sm whitespace-nowrap transition-all duration-300 ${
                 activeTab === tab.id
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800/50'
               }`}
             >
-              <tab.icon className="w-4 h-4 md:w-5 md:h-5" />
+              <tab.icon className="w-5 h-5" />
               <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
@@ -192,26 +195,32 @@ export default function AdminPanel() {
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <div className="flex items-center justify-between">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="stagger-item glass-card p-6 rounded-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full blur-lg"></div>
+              <div className="relative z-10 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Total Users</p>
-                  <p className="text-2xl font-bold">{dashboardData?.overview?.totalUsers || stats?.totalUsers || 0}</p>
-                  <p className="text-xs text-green-600">+{dashboardData?.overview?.userGrowthRate || 0}% this month</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Users</p>
+                  <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{dashboardData?.overview?.totalUsers || stats?.totalUsers || 0}</p>
+                  <p className="text-xs text-green-600 font-medium">+{dashboardData?.overview?.userGrowthRate || 0}% this month</p>
                 </div>
-                <FiUsers className="h-8 w-8 text-blue-500" />
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center">
+                  <FiUsers className="h-6 w-6 text-white" />
+                </div>
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <div className="flex items-center justify-between">
+            <div className="stagger-item glass-card p-6 rounded-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-full blur-lg"></div>
+              <div className="relative z-10 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Active Subscriptions</p>
-                  <p className="text-2xl font-bold">{dashboardData?.subscriptions?.active || 0}</p>
-                  <p className="text-xs text-orange-600">{dashboardData?.subscriptions?.expiringThisWeek || 0} expiring this week</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Subscriptions</p>
+                  <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">{dashboardData?.subscriptions?.active || 0}</p>
+                  <p className="text-xs text-orange-600 font-medium">{dashboardData?.subscriptions?.expiringThisWeek || 0} expiring this week</p>
                 </div>
-                <FiCreditCard className="h-8 w-8 text-green-500" />
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center">
+                  <FiCreditCard className="h-6 w-6 text-white" />
+                </div>
               </div>
             </div>
             

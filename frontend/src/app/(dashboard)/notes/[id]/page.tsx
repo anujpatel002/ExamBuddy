@@ -1,19 +1,23 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { sanitizeHTML } from '@/utils/sanitizer';
+import { formatCodeContent, containsCode, containsSteps, getCodeStyles } from '@/utils/codeFormatter';
 import Button from '@/components/ui/Button';
 import Flashcard from '@/components/notes/Flashcard';
 import Spinner from '@/components/ui/Spinner';
 
-import { FiFileText, FiClipboard, FiHelpCircle, FiEdit, FiArrowLeft, FiTrash2, FiShare2, FiMessageSquare } from 'react-icons/fi';
+import { FiFileText, FiClipboard, FiHelpCircle, FiEdit, FiArrowLeft, FiTrash2, FiShare2, FiMessageSquare, FiEye, FiX, FiChevronLeft, FiChevronRight, FiDownload } from 'react-icons/fi';
+import { useScrollSticky } from '@/hooks/useScrollSticky';
 import GenerateQuizModal from '@/components/notes/GenerateQuizModal';
 import DeleteConfirmationModal from '@/components/ui/DeleteConfirmationModal';
 import MindMap from '@/components/notes/MindMap';
 import ChatInterface from '@/components/notes/ChatInterface';
+
 
 // --- Type Definitions ---
 interface IFlashcard { question: string; answer: string; }
@@ -52,78 +56,295 @@ interface INote {
 type ActiveTab = 'summary' | 'flashcards' | 'practice' | 'mcq' | 'mindmap' | 'chat';
 
 // Practice Question Card Component
-const PracticeQuestionCard = ({ question, index, activePracticeTab, questionCategories, onPin, isPinned }: {
+const PracticeQuestionCard = ({ question, index, activePracticeTab, questionCategories, onPin, isPinned, allQuestions, currentIndex, sectionType }: {
   question: ICategorizedQuestion & { _id?: string; isPinned?: boolean };
   index: number;
   activePracticeTab: string;
   questionCategories: { key: string; label: string; }[];
   onPin: (questionId: string, marker: string) => void;
   isPinned?: boolean;
+  allQuestions?: ICategorizedQuestion[];
+  currentIndex?: number;
+  sectionType?: 'theory' | 'practical';
 }) => {
-  const [showAnswer, setShowAnswer] = useState(false);
+  const [showViewer, setShowViewer] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(currentIndex || 0);
+  const [translateX, setTranslateX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  
+  // Debug logging
+  useEffect(() => {
+    if (showViewer) {
+      console.log('Practice Question Popup Debug:', {
+        activePracticeTab,
+        allQuestions: allQuestions?.length || 0,
+        currentIndex,
+        viewerIndex
+      });
+    }
+  }, [showViewer, activePracticeTab, allQuestions, currentIndex, viewerIndex]);
+  
+  // Keyboard navigation
+  useEffect(() => {
+    if (showViewer) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+    
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [showViewer]);
+  
+  useEffect(() => {
+    if (!showViewer) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowViewer(false);
+      } else if (e.key === 'ArrowRight' && allQuestions && viewerIndex < allQuestions.length - 1) {
+        nextQuestion();
+      } else if (e.key === 'ArrowLeft' && viewerIndex > 0) {
+        prevQuestion();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showViewer, viewerIndex, allQuestions]);
+  
+  const nextQuestion = () => {
+    if (allQuestions && viewerIndex < allQuestions.length - 1 && !isTransitioning) {
+      setIsTransitioning(true);
+      setViewerIndex(viewerIndex + 1);
+      setTimeout(() => setIsTransitioning(false), 300);
+    }
+  };
+
+  const prevQuestion = () => {
+    if (viewerIndex > 0 && !isTransitioning) {
+      setIsTransitioning(true);
+      setViewerIndex(viewerIndex - 1);
+      setTimeout(() => setIsTransitioning(false), 300);
+    }
+  };
+
+
+
+  // Calculate dynamic height based on content
+  const calculateHeight = () => {
+    const currentQuestion = allQuestions?.[viewerIndex] || question;
+    const totalLength = currentQuestion.question.length + currentQuestion.answer.length;
+    
+    if (totalLength < 200) return '75vh';
+    if (totalLength < 500) return '75vh';
+    if (totalLength < 1000) return '80vh';
+    if (totalLength < 2000) return '85vh';
+    return '90vh';
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (isTransitioning) return;
+    const touch = e.touches[0];
+    (e.currentTarget as any).startX = touch.clientX;
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || isTransitioning) return;
+    const touch = e.touches[0];
+    const startX = (e.currentTarget as any).startX;
+    const diffX = startX - touch.clientX;
+    
+    // Limit drag to prevent going beyond bounds
+    const maxDrag = window.innerWidth * 0.3;
+    const limitedDiffX = Math.max(-maxDrag, Math.min(maxDrag, -diffX));
+    setTranslateX(limitedDiffX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isDragging || isTransitioning) return;
+    
+    const touch = e.changedTouches[0];
+    const startX = (e.currentTarget as any).startX;
+    const diffX = startX - touch.clientX;
+    
+    setIsDragging(false);
+    setTranslateX(0);
+    
+    if (Math.abs(diffX) > 80) {
+      if (diffX > 0 && allQuestions && viewerIndex < allQuestions.length - 1) {
+        nextQuestion();
+      } else if (diffX < 0 && viewerIndex > 0) {
+        prevQuestion();
+      }
+    }
+  };
   
   return (
-    <div className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-md transition-all duration-300 ${showAnswer ? 'shadow-lg' : ''}`}>
-      <div className="bg-gray-50 dark:bg-gray-800/50 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                {isPinned && <span className="text-yellow-500">📌</span>}
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                  Question {index + 1}
-                </span>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  activePracticeTab === 'oneMarker' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                  activePracticeTab === 'threeMarker' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300' :
-                  activePracticeTab === 'fourMarker' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300' :
-                  'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
-                }`}>
-                  {questionCategories.find(c => c.key === activePracticeTab)?.label}
-                </span>
-              </div>
-              <button
-                onClick={() => onPin(question._id || `${index}`, activePracticeTab)}
-                className={`p-1 rounded transition-colors ${
-                  isPinned ? 'text-yellow-500 hover:text-yellow-600' : 'text-gray-400 hover:text-gray-600'
-                }`}
-                title={isPinned ? 'Unpin question' : 'Pin question'}
-              >
-                📌
-              </button>
-            </div>
-            <h4 className="font-medium text-gray-900 dark:text-gray-100 leading-relaxed mb-3">{question.question}</h4>
-            
-            <div className={`mt-4 overflow-hidden transition-all duration-500 ease-in-out ${
-              showAnswer ? 'max-h-none opacity-100' : 'max-h-0 opacity-0'
-            }`}>
-              <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-700">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-sm font-semibold text-green-700 dark:text-green-300">ANSWER</span>
+    <>
+      <div className={`glass-card rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-500 group hover:scale-105`}>
+        <div className="relative p-6">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    {isPinned && <span className="text-2xl animate-pulse">📌</span>}
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700">
+                      Question {index + 1}
+                    </span>
+                    <span className={`glass-card px-3 py-1 rounded-full text-xs font-bold ${
+                      activePracticeTab === 'oneMarker' ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-300' :
+                      activePracticeTab === 'threeMarker' ? 'bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/30 dark:to-orange-900/30 text-yellow-700 dark:text-yellow-300' :
+                      activePracticeTab === 'fourMarker' ? 'bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/30 dark:to-red-900/30 text-orange-700 dark:text-orange-300' :
+                      'bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/30 dark:to-pink-900/30 text-red-700 dark:text-red-300'
+                    }`}>
+                      {questionCategories.find(c => c.key === activePracticeTab)?.label}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => onPin(question._id || `${index}`, activePracticeTab)}
+                    className={`p-2 glass-card rounded-xl transition-all duration-300 hover:scale-110 ${
+                      isPinned ? 'text-yellow-500 hover:text-yellow-600 shadow-lg' : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                    title={isPinned ? 'Unpin question' : 'Pin question'}
+                  >
+                    📌
+                  </button>
                 </div>
-                <div className="prose dark:prose-invert prose-sm max-w-none text-sm leading-7 overflow-y-auto max-h-96 overflow-x-hidden">
-                  <div dangerouslySetInnerHTML={{ __html: sanitizeHTML(question.answer) }} />
+                <div className="font-bold text-gray-900 dark:text-gray-100 leading-relaxed mb-4 text-lg max-h-32 overflow-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+                  {containsCode(question.question, sectionType) ? (
+                    <div dangerouslySetInnerHTML={{ __html: formatCodeContent(question.question, sectionType) }} />
+                  ) : (
+                    question.question
+                  )}
+                </div>
+              
+                <div className="mt-6">
+                  <button
+                    onClick={() => {
+                      setShowViewer(true);
+                      setTimeout(() => {
+                        const contentDiv = document.querySelector('.question-viewer-content');
+                        if (contentDiv) contentDiv.scrollTop = 0;
+                        
+                        // Scroll popup header to center of viewport
+                        const popupElement = document.querySelector('.question-popup');
+                        if (popupElement) {
+                          popupElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                      }, 300);
+                    }}
+                    className="center-content gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-2xl font-medium transition-all duration-300 hover:scale-105 shadow-lg"
+                  >
+                    <FiEye className="w-4 h-4" />
+                    <span>View Answer</span>
+                  </button>
                 </div>
               </div>
-            </div>
-            
-            <div className="mt-4">
-              <button
-                onClick={() => setShowAnswer(!showAnswer)}
-                className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${
-                  showAnswer 
-                    ? 'bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/50 dark:hover:bg-green-900/70 dark:text-green-300'
-                    : 'bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-900/50 dark:hover:bg-blue-900/70 dark:text-blue-300'
-                }`}
-              >
-                {showAnswer ? '👁️ Hide Answer' : '👀 Show Answer'}
-              </button>
             </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Question Viewer */}
+      {showViewer && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-white dark:bg-gray-800 flex flex-col overflow-hidden question-popup" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999999, width: '100vw', height: '100dvh', minHeight: '100dvh' }}>
+            {/* Header - Always Show */}
+            <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-600 to-indigo-600">
+              <div className="flex justify-between items-center p-4">
+                <div className="flex items-center gap-4">
+                  <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium text-white">
+                    {allQuestions && allQuestions.length > 0 ? `${viewerIndex + 1} of ${allQuestions.length}` : '1 of 1'}
+                  </span>
+                  <div className="flex gap-2 md:hidden">
+                    <button
+                      onClick={prevQuestion}
+                      disabled={!allQuestions || allQuestions.length <= 1 || viewerIndex === 0}
+                      className="p-2 bg-white/20 hover:bg-white/30 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <FiChevronLeft className="w-4 h-4 text-white" />
+                    </button>
+                    <button
+                      onClick={nextQuestion}
+                      disabled={!allQuestions || allQuestions.length <= 1 || viewerIndex === allQuestions.length - 1}
+                      className="p-2 bg-white/20 hover:bg-white/30 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <FiChevronRight className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowViewer(false)}
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <FiX className="w-6 h-6 text-white" />
+                </button>
+              </div>
+              <div className="px-4 pb-3">
+                <span className="text-sm font-medium text-white/80">Q & A</span>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 bg-white dark:bg-gray-800 overflow-y-auto question-viewer-content p-6">
+              <div className="max-w-none space-y-8">
+                {/* Question */}
+                <div className="p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border-l-4 border-blue-500">
+                  <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 mb-4">QUESTION</h3>
+                  <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-base overflow-auto whitespace-pre-wrap break-words" style={{ WebkitOverflowScrolling: 'touch', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                    {containsCode(allQuestions?.[viewerIndex]?.question || question.question, sectionType) ? (
+                      <div dangerouslySetInnerHTML={{ __html: formatCodeContent(allQuestions?.[viewerIndex]?.question || question.question, sectionType) }} />
+                    ) : (
+                      <p className="text-base leading-7">{allQuestions?.[viewerIndex]?.question || question.question}</p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Answer */}
+                <div className="p-6 bg-green-50 dark:bg-green-900/20 rounded-xl border-l-4 border-green-500">
+                  <h3 className="text-lg font-bold text-green-600 dark:text-green-400 mb-4">ANSWER</h3>
+                  <div className="prose dark:prose-invert prose-base max-w-none text-gray-800 dark:text-gray-200 overflow-auto whitespace-pre-wrap break-words" style={{ WebkitOverflowScrolling: 'touch', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                    {(containsCode(allQuestions?.[viewerIndex]?.answer || question.answer, sectionType) || containsSteps(allQuestions?.[viewerIndex]?.answer || question.answer)) ? (
+                      <div dangerouslySetInnerHTML={{ __html: formatCodeContent(allQuestions?.[viewerIndex]?.answer || question.answer, sectionType) }} />
+                    ) : (
+                      <div className="text-base leading-7" dangerouslySetInnerHTML={{ __html: allQuestions?.[viewerIndex]?.answer || question.answer }} />
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Desktop Navigation - Always Show */}
+              <div className="hidden md:flex justify-center gap-4 p-6 mt-8 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  onClick={prevQuestion}
+                  disabled={!allQuestions || allQuestions.length <= 1 || viewerIndex === 0}
+                  className="px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-base font-medium"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={nextQuestion}
+                  disabled={!allQuestions || allQuestions.length <= 1 || viewerIndex === allQuestions.length - 1}
+                  className="px-6 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-base font-medium"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+        </div>,
+        document.body
+      )}
+    </>
   );
 };
 
@@ -131,6 +352,7 @@ export default function NoteDetailPage() {
   const { id: noteId } = useParams();
   const router = useRouter();
   const { refreshUser } = useAuth();
+  const isNotesScrolled = useScrollSticky(200);
   const [note, setNote] = useState<INote | null>(null);
   const [quizzes, setQuizzes] = useState<IQuiz[]>([]);
   const [loading, setLoading] = useState(true);
@@ -495,9 +717,10 @@ export default function NoteDetailPage() {
       case 'categorized':
         if (options?.markers) {
           endpoint = `/ai/more-categorized-questions/${noteId}`;
-          payload = { markers: options.markers };
+          payload = { markers: options.markers, type: activePracticeType };
         } else {
           endpoint = `/ai/categorized-questions/${noteId}`;
+          payload = { type: activePracticeType };
         }
         break;
     }
@@ -634,16 +857,20 @@ export default function NoteDetailPage() {
 
   const TabButton = ({ tabName, label, icon: Icon, disabled = false }: { tabName: ActiveTab; label: string; icon: React.ElementType; disabled?: boolean }) => (
     <button
-      onClick={() => setActiveTab(tabName)}
+      onClick={() => {
+        setActiveTab(tabName);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }}
       disabled={disabled}
-      className={`flex items-center gap-2 whitespace-nowrap py-4 px-3 border-b-2 font-medium text-sm transition-colors ${
+      className={`flex items-center gap-1 md:gap-2 whitespace-nowrap py-3 md:py-3 px-4 md:px-4 rounded-lg md:rounded-xl font-medium text-sm md:text-sm transition-all duration-300 ${
         activeTab === tabName
-          ? 'border-indigo-500 text-indigo-600'
-          : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'
+          ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+          : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800/50'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
-      <Icon className="w-5 h-5" />
-      {label}
+      <Icon className="w-5 h-5 md:w-5 md:h-5 flex-shrink-0" />
+      <span className="hidden sm:inline">{label}</span>
+      <span className="sm:hidden text-sm">{label.split(' ')[0]}</span>
     </button>
   );
 
@@ -664,16 +891,17 @@ export default function NoteDetailPage() {
     switch (activeTab) {
       case 'summary':
         return (
-          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md">
+          <div className="bg-white dark:bg-gray-800 p-3 md:p-4 lg:p-6 rounded-lg shadow-md card-hover">
             {note.summary ? (
               <>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                   <h3 className="text-lg font-semibold">Summary</h3>
                   <Button 
                     onClick={() => handleGenerate('summary')} 
                     isLoading={generating === 'summary'}
                     variant="secondary"
                     size="sm"
+                    className="w-full sm:w-auto"
                   >
                     🔄 Regenerate
                   </Button>
@@ -685,184 +913,271 @@ export default function NoteDetailPage() {
                 />
               </>
             ) : (
-              <Button onClick={() => handleGenerate('summary')} isLoading={generating === 'summary'}>Generate Summary</Button>
+              <div className="text-center">
+                <Button onClick={() => handleGenerate('summary')} isLoading={generating === 'summary'} className="w-full sm:w-auto">
+                  Generate Summary
+                </Button>
+              </div>
             )}
           </div>
         );
       case 'flashcards':
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+          <div className="space-y-6">
             {note.flashcards ? (
-              <div>
-                {/* Type Tabs for Theory/Practical */}
-                {((note.flashcards as any).theory || (note.flashcards as any).practical) && (
-                  <div className="bg-gray-100 dark:bg-gray-700/50 px-4 sm:px-6">
-                    <nav className="-mb-px flex space-x-1" aria-label="Type Tabs">
-                      {[
-                        { key: 'theory', label: 'Theory', icon: '📚' },
-                        { key: 'practical', label: 'Practical', icon: '⚡' }
-                      ].map(tab => (
-                        <button
-                          key={tab.key}
-                          onClick={() => setActiveFlashcardType(tab.key)}
-                          className={`${activeFlashcardType === tab.key 
-                            ? 'border-purple-500 text-purple-600 bg-white dark:bg-gray-800' 
-                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                          } whitespace-nowrap py-2 px-4 border-b-2 font-medium text-sm transition-all duration-200 flex items-center gap-2`}
-                        >
-                          <span>{tab.icon}</span>
-                          {tab.label}
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            activeFlashcardType === tab.key 
-                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300' 
-                              : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                          }`}>
-                            {(note.flashcards as any)[tab.key]?.length || 0}
-                          </span>
-                        </button>
-                      ))}
-                    </nav>
-                  </div>
-                )}
-                
-                <div className="p-4 sm:p-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
-                    {(() => {
-                      const allFlashcards = (note.flashcards as any)[activeFlashcardType] || [];
-                      console.log('All flashcards for', activeFlashcardType, ':', allFlashcards.length, allFlashcards);
-                      const currentPage = flashcardPages[activeFlashcardType] || 1;
-                      const cardsPerPage = 9; // 3x3 grid
-                      const startIndex = (currentPage - 1) * cardsPerPage;
-                      const endIndex = startIndex + cardsPerPage;
-                      const cardsToShow = allFlashcards.slice(startIndex, endIndex);
-                      console.log('Cards to show:', cardsToShow.length, 'from', startIndex, 'to', endIndex);
-                      
-                      console.log('Flashcards to render:', cardsToShow.length, cardsToShow);
-                      
-                      if (cardsToShow.length === 0) {
-                        return <div className="col-span-full text-center py-8 text-gray-500">No {activeFlashcardType} flashcards found</div>;
-                      }
-                      
-                      return cardsToShow.map((fc: any, index: number) => {
-                        console.log('Rendering flashcard:', index, fc);
-                        if (!fc || !fc.question || !fc.answer) {
-                          console.log('Invalid flashcard:', fc);
-                          return null;
-                        }
-                        return (
-                          <Flashcard 
-                            key={`${activeFlashcardType}-${startIndex + index}`} 
-                            flashcard={fc} 
-                            allFlashcards={allFlashcards}
-                            currentIndex={startIndex + index}
-                          />
-                        );
-                      }).filter(Boolean);
-                    })()
-                    }
-                  </div>
-                  
-                  {/* Flashcard Pagination */}
-                  {(() => {
-                    const allFlashcards = (note.flashcards as any)[activeFlashcardType] || [];
-                    const totalPages = Math.ceil(allFlashcards.length / 9);
-                    const currentPage = flashcardPages[activeFlashcardType] || 1;
-                    
-                    if (totalPages <= 1) return null;
-                    
-                    return (
-                      <div className="flex justify-center items-center gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <span className="text-sm text-gray-600 dark:text-gray-400 mr-4">
-                          Page {currentPage} of {totalPages} ({allFlashcards.length} flashcards)
-                        </span>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
-                          <button
-                            key={pageNum}
-                            onClick={() => setFlashcardPages(prev => ({ ...prev, [activeFlashcardType]: pageNum }))}
-                            className={`w-8 h-8 rounded-full text-sm font-medium transition-all duration-200 ${
-                              currentPage === pageNum
-                                ? 'bg-blue-500 text-white shadow-md'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        ))}
+              <>
+                {/* AI-Style Header */}
+                <div className="glass-card rounded-2xl p-4 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-purple-500/10"></div>
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 glass-card rounded-xl flex items-center justify-center bg-gradient-to-br from-blue-500/20 to-indigo-500/20">
+                        <span className="text-xl">🃏</span>
                       </div>
-                    );
-                  })()}
-                  
-                  {/* Show message if no flashcards for current type */}
-                  {((note.flashcards as any)[activeFlashcardType]?.length || 0) === 0 && (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 dark:text-gray-400">
-                        No {activeFlashcardType} flashcards yet. Generate some below!
-                      </p>
+                      <div>
+                        <h2 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">Flashcards</h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Interactive cards for quick knowledge review</p>
+                      </div>
                     </div>
-                  )}
-                  <div className="text-center mt-6">
-                    {(() => {
-                      const hasTheoryPractical = (note.flashcards as any).theory !== undefined || (note.flashcards as any).practical !== undefined;
-                      const currentCards = (note.flashcards as any)[activeFlashcardType] || [];
-                      const allGenerated = (note.flashcards as any).allGenerated?.[activeFlashcardType] || [];
-                      const displayedCount = (note.flashcards as any).displayedCount?.[activeFlashcardType] || 0;
-                      const hasMoreInDB = allGenerated.length > displayedCount;
-                      
-                      console.log('Button logic:', {
-                        activeFlashcardType,
-                        currentCards: currentCards.length,
-                        allGenerated: allGenerated.length,
-                        displayedCount,
-                        hasMoreInDB
-                      });
-                      
-                      if (hasTheoryPractical) {
-                        return (
-                          <Button 
-                            onClick={() => handleGenerate('flashcards', { flashcardType: activeFlashcardType })} 
-                            isLoading={generating === 'flashcards'}
-                          >
-                            {hasMoreInDB ? 'Load More' : 'Generate More'} {activeFlashcardType === 'theory' ? 'Theory' : 'Practical'} Flashcards
-                          </Button>
-                        );
-                      } else {
-                        return (
-                          <Button onClick={() => handleGenerate('flashcards')} isLoading={generating === 'flashcards'}>
-                            Get More Flashcards
-                          </Button>
-                        );
-                      }
-                    })()
-                    }
                   </div>
                 </div>
-              </div>
+
+                {/* Theory/Practical Sections */}
+                {((note.flashcards as any).theory || (note.flashcards as any).practical) && (
+                  <div className="glass-card rounded-2xl p-1 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-indigo-500/5 to-purple-500/5"></div>
+                    <div className="relative z-10 flex gap-1">
+                      {[
+                        { key: 'theory', label: 'Theory', icon: '📚', gradient: 'from-blue-500 to-indigo-500' },
+                        { key: 'practical', label: 'Practical', icon: '⚡', gradient: 'from-indigo-500 to-purple-500' }
+                      ].map(tab => {
+                        const count = (note.flashcards as any)[tab.key]?.length || 0;
+                        return (
+                          <button
+                            key={tab.key}
+                            onClick={() => setActiveFlashcardType(tab.key)}
+                            className={`flex-1 p-3 rounded-xl transition-all duration-300 hover:scale-105 ${
+                              activeFlashcardType === tab.key 
+                                ? `bg-gradient-to-r ${tab.gradient} text-white shadow-lg` 
+                                : 'glass-card hover:bg-white/50 dark:hover:bg-gray-800/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-lg">{tab.icon}</span>
+                              <div>
+                                <div className="font-bold text-sm">{tab.label}</div>
+                                <div className={`text-xs ${activeFlashcardType === tab.key ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>
+                                  {count} Cards
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Flashcards Grid */}
+                <div className="glass-card rounded-2xl p-4 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-indigo-500/5 to-purple-500/5"></div>
+                  <div className="relative z-10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {(() => {
+                        const allFlashcards = (note.flashcards as any)[activeFlashcardType] || [];
+                        const currentPage = flashcardPages[activeFlashcardType] || 1;
+                        const cardsPerPage = 6;
+                        const startIndex = (currentPage - 1) * cardsPerPage;
+                        const endIndex = startIndex + cardsPerPage;
+                        const cardsToShow = allFlashcards.slice(startIndex, endIndex);
+                        
+                        if (cardsToShow.length === 0) {
+                          return (
+                            <div className="col-span-full text-center py-12">
+                              <div className="w-16 h-16 glass-card rounded-2xl flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-gray-500/20 to-gray-600/20">
+                                <span className="text-2xl">🃏</span>
+                              </div>
+                              <p className="text-gray-500 dark:text-gray-400">No {activeFlashcardType} flashcards found</p>
+                            </div>
+                          );
+                        }
+                        
+                        return cardsToShow.map((fc: any, index: number) => {
+                          if (!fc || !fc.question || !fc.answer) return null;
+                          return (
+                            <Flashcard 
+                              key={`${activeFlashcardType}-${startIndex + index}`} 
+                              flashcard={fc} 
+                              allFlashcards={allFlashcards}
+                              currentIndex={startIndex + index}
+                              sectionType={activeFlashcardType as 'theory' | 'practical'}
+                            />
+                          );
+                        }).filter(Boolean);
+                      })()
+                      }
+                    </div>
+                    
+                    {/* Modern Pagination */}
+                    {(() => {
+                      const allFlashcards = (note.flashcards as any)[activeFlashcardType] || [];
+                      const totalPages = Math.ceil(allFlashcards.length / 6);
+                      const currentPage = flashcardPages[activeFlashcardType] || 1;
+                      
+                      if (totalPages <= 1) return null;
+                      
+                      return (
+                        <div className="flex justify-center items-center gap-3 mt-8 pt-6 border-t border-white/20 dark:border-gray-700/50">
+                          <span className="glass-card px-4 py-2 rounded-full text-sm font-medium bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                            Page {currentPage} of {totalPages}
+                          </span>
+                          <div className="flex gap-2">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                              <button
+                                key={pageNum}
+                                onClick={() => setFlashcardPages(prev => ({ ...prev, [activeFlashcardType]: pageNum }))}
+                                className={`w-10 h-10 rounded-xl text-sm font-bold transition-all duration-300 hover:scale-110 ${
+                                  currentPage === pageNum
+                                    ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg'
+                                    : 'glass-card hover:bg-white/50 dark:hover:bg-gray-800/50 text-gray-600 dark:text-gray-300'
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    
+                    {/* Generate More Button */}
+                    <div className="text-center mt-8">
+                      {(() => {
+                        const hasTheoryPractical = (note.flashcards as any).theory !== undefined || (note.flashcards as any).practical !== undefined;
+                        const currentCards = (note.flashcards as any)[activeFlashcardType] || [];
+                        const allGenerated = (note.flashcards as any).allGenerated?.[activeFlashcardType] || [];
+                        const displayedCount = (note.flashcards as any).displayedCount?.[activeFlashcardType] || 0;
+                        const hasMoreInDB = allGenerated.length > displayedCount;
+                        
+                        if (hasTheoryPractical) {
+                          return (
+                            <Button 
+                              onClick={() => handleGenerate('flashcards', { flashcardType: activeFlashcardType })} 
+                              isLoading={generating === 'flashcards'}
+                              className="modern-button bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-2xl px-8 py-3 hover:scale-105 transition-all duration-300"
+                            >
+                              {hasMoreInDB ? 'Load More' : 'Generate More'} {activeFlashcardType === 'theory' ? 'Theory' : 'Practical'} Flashcards
+                            </Button>
+                          );
+                        } else {
+                          return (
+                            <Button 
+                              onClick={() => handleGenerate('flashcards')} 
+                              isLoading={generating === 'flashcards'}
+                              className="modern-button bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-2xl px-8 py-3 hover:scale-105 transition-all duration-300"
+                            >
+                              Get More Flashcards
+                            </Button>
+                          );
+                        }
+                      })()
+                      }
+                    </div>
+                  </div>
+                </div>
+              </>
             ) : (
-              <div className="p-4 sm:p-6">
-                <Button onClick={() => handleGenerate('flashcards')} isLoading={generating === 'flashcards'}>Generate Flashcards</Button>
+              <div className="glass-card rounded-2xl p-8 text-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-purple-500/10"></div>
+                <div className="relative z-10">
+                  <div className="w-16 h-16 glass-card rounded-2xl flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-blue-500/20 to-indigo-500/20">
+                    <span className="text-2xl">🃏</span>
+                  </div>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3">Create Flashcards</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto text-sm">
+                    Generate interactive flashcards to help you memorize key concepts and facts.
+                  </p>
+                  <Button 
+                    onClick={() => handleGenerate('flashcards')} 
+                    isLoading={generating === 'flashcards'}
+                    className="modern-button bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white px-6 py-3 rounded-xl hover:scale-105 transition-all duration-300 shadow-xl"
+                  >
+                    🎆 Generate Flashcards
+                  </Button>
+                </div>
               </div>
             )}
           </div>
         );
       case 'practice':
         return (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+          <div className="space-y-6">
             {note.categorizedQuestions && Object.keys(note.categorizedQuestions).length > 0 ? (
-              <div>
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Practice Questions</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Test your understanding with exam-style questions</p>
+              <>
+                {/* AI-Style Header */}
+                <div className="glass-card rounded-2xl p-4 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-pink-500/10"></div>
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 glass-card rounded-xl flex items-center justify-center bg-gradient-to-br from-indigo-500/20 to-purple-500/20">
+                        <span className="text-xl">🎯</span>
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Practice Questions</h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Master your knowledge with AI-generated practice questions</p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="bg-white dark:bg-gray-800 px-3 py-1 rounded-full border text-sm text-gray-500 dark:text-gray-400">
-                        {(note.categorizedQuestions as any).theory ? 
-                          Object.values((note.categorizedQuestions as any).theory).reduce((total: number, arr: any) => total + (arr?.length || 0), 0) +
-                          Object.values((note.categorizedQuestions as any).practical || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0)
-                        : Object.values(note.categorizedQuestions).reduce((total: number, arr: any) => total + (Array.isArray(arr) ? arr.length : 0), 0)} Questions
-                      </span>
+                    
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="glass-card px-3 py-1 rounded-full">
+                        <span className="text-xs font-medium bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                          {(note.categorizedQuestions as any).theory ? 
+                            Object.values((note.categorizedQuestions as any).theory).reduce((total: number, arr: any) => total + (arr?.length || 0), 0) +
+                            Object.values((note.categorizedQuestions as any).practical || {}).reduce((total: number, arr: any) => total + (arr?.length || 0), 0)
+                          : Object.values(note.categorizedQuestions).reduce((total: number, arr: any) => total + (Array.isArray(arr) ? arr.length : 0), 0)} Total Questions
+                        </span>
+                      </div>
+                      
+                      <Button
+                        onClick={async () => {
+                          try {
+                            const formatChoice = confirm('Choose download format:\n\nOK = PDF (Professional)\nCancel = Word Document (Editable)');
+                            const format = formatChoice ? 'pdf' : 'word';
+                            
+                            toast.loading('Generating exam from uploaded notes...');
+                            
+                            // Call backend to generate exam directly from note content
+                            const response = await api.post(`/ai/generate-exam/${noteId}`, {
+                              totalMarks: 70,
+                              duration: 3,
+                              distribution: {
+                                oneMarker: 10,
+                                threeMarker: 6,
+                                fourMarker: 4,
+                                fiveMarker: 4
+                              }
+                            });
+                            
+                            const { generateQuickExam } = await import('@/utils/examGenerator');
+                            await generateQuickExam(response.data.questions, note.title, format);
+                            
+                            toast.dismiss();
+                            toast.success(`Exam paper generated as ${format.toUpperCase()} from uploaded notes!`);
+                          } catch (error: any) {
+                            toast.dismiss();
+                            console.error('Exam generation failed:', error);
+                            toast.error(error.response?.data?.message || 'Failed to generate exam paper.');
+                          }
+                        }}
+                        disabled={!note.textContent}
+                        className="modern-button bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white rounded-xl px-4 py-2 text-sm hover:scale-105 transition-all duration-300"
+                      >
+                        <FiDownload className="w-3 h-3 mr-1" />
+                        Generate Exam from Notes
+                      </Button>
+                      
                       {(() => {
                         const currentQuestions = (note.categorizedQuestions as any).theory ? 
                           (note.categorizedQuestions as any)[activePracticeType] :
@@ -870,14 +1185,16 @@ export default function NoteDetailPage() {
                         const allGenerated = (note.categorizedQuestions as any).allGenerated?.[activePracticeTab] || [];
                         const displayed = currentQuestions?.[activePracticeTab]?.length || 0;
                         const hasMore = allGenerated.length > displayed;
-                        const markerValue = activePracticeTab.replace('Marker', '').replace('one', '1').replace('three', '3').replace('four', '4').replace('five', '5');
+                        const markerValue = activePracticeTab === 'oneMarker' ? '1' : 
+                                          activePracticeTab === 'threeMarker' ? '3' : 
+                                          activePracticeTab === 'fourMarker' ? '4' : 
+                                          activePracticeTab === 'fiveMarker' ? '5' : '1';
                         
                         return (
                           <Button 
                             onClick={() => handleGenerate('categorized', { markers: markerValue })}
                             isLoading={generating === `categorized-${markerValue}`}
-                            variant="secondary"
-                            size="sm"
+                            className="modern-button bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white rounded-xl px-4 py-2 text-sm hover:scale-105 transition-all duration-300"
                           >
                             {hasMore ? '+ More' : '+ Generate'} {activePracticeTab.replace('Marker', ' Marker')}
                           </Button>
@@ -888,180 +1205,209 @@ export default function NoteDetailPage() {
                   </div>
                 </div>
 
-                {/* Type Tabs (Theory/Practical) */}
+                {/* Theory/Practical Sections */}
                 {((note.categorizedQuestions as any).theory || (note.categorizedQuestions as any).practical) && (
-                  <div className="bg-gray-100 dark:bg-gray-700/50 px-4 sm:px-6">
-                    <nav className="-mb-px flex space-x-1" aria-label="Type Tabs">
+                  <div className="glass-card rounded-2xl p-1 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-indigo-500/5 to-purple-500/5"></div>
+                    <div className="relative z-10 flex gap-1">
                       {[
-                        { key: 'theory', label: 'Theory', icon: '📚' },
-                        { key: 'practical', label: 'Practical', icon: '⚡' }
-                      ].filter(tab => (note.categorizedQuestions as any)[tab.key]).map(tab => {
+                        { key: 'theory', label: 'Theory', icon: '📚', gradient: 'from-blue-500 to-indigo-500' },
+                        { key: 'practical', label: 'Practical', icon: '⚡', gradient: 'from-purple-500 to-pink-500' }
+                      ].filter(tab => {
+                        const tabData = (note.categorizedQuestions as any)[tab.key];
+                        return tabData && Object.keys(tabData).length > 0;
+                      }).map(tab => {
                         const count = Object.values((note.categorizedQuestions as any)[tab.key] || {}).reduce((total: number, arr: any) => total + (Array.isArray(arr) ? arr.length : 0), 0);
                         return (
                           <button
                             key={tab.key}
                             onClick={() => setActivePracticeType(tab.key)}
-                            className={`${activePracticeType === tab.key 
-                              ? 'border-purple-500 text-purple-600 bg-white dark:bg-gray-800' 
-                              : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                            } whitespace-nowrap py-2 px-4 border-b-2 font-medium text-sm transition-all duration-200 flex items-center gap-2`}
-                          >
-                            <span>{tab.icon}</span>
-                            {tab.label}
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            className={`flex-1 p-3 rounded-xl transition-all duration-300 hover:scale-105 ${
                               activePracticeType === tab.key 
-                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300' 
-                                : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                            }`}>
-                              {count}
-                            </span>
+                                ? `bg-gradient-to-r ${tab.gradient} text-white shadow-lg` 
+                                : 'glass-card hover:bg-white/50 dark:hover:bg-gray-800/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-lg">{tab.icon}</span>
+                              <div>
+                                <div className="font-bold text-sm">{tab.label}</div>
+                                <div className={`text-xs ${activePracticeType === tab.key ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>
+                                  {count} Questions
+                                </div>
+                              </div>
+                            </div>
                           </button>
                         );
                       })}
-                    </nav>
+                    </div>
                   </div>
                 )}
 
-                {/* Category Tabs */}
-                <div className="bg-gray-50 dark:bg-gray-800/50 px-4 sm:px-6">
-                  <nav className="-mb-px flex space-x-1 overflow-x-auto" aria-label="Tabs">
-                    {questionCategories.map(tab => {
-                      const currentQuestions = (note.categorizedQuestions as any).theory ? 
-                        (note.categorizedQuestions as any)[activePracticeType] :
-                        note.categorizedQuestions;
-                      const count = currentQuestions?.[tab.key]?.length || 0;
-                      return (
-                        <button
-                          key={tab.key}
-                          onClick={() => setActivePracticeTab(tab.key)}
-                          className={`${activePracticeTab === tab.key 
-                            ? 'border-indigo-500 text-indigo-600 bg-white dark:bg-gray-800' 
-                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-800/50'
-                          } whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-all duration-200 rounded-t-lg flex items-center gap-2`}
-                        >
-                          <span className={`w-2 h-2 rounded-full ${
-                            activePracticeTab === tab.key ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'
-                          }`}></span>
-                          {tab.label}
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            activePracticeTab === tab.key 
-                              ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' 
-                              : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                          }`}>
-                            {count}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </nav>
+                {/* Marker Categories Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {questionCategories.map(tab => {
+                    const currentQuestions = (note.categorizedQuestions as any).theory ? 
+                      (note.categorizedQuestions as any)[activePracticeType] :
+                      note.categorizedQuestions;
+                    const count = currentQuestions?.[tab.key]?.length || 0;
+                    const gradients = {
+                      'oneMarker': 'from-green-500 to-emerald-500',
+                      'threeMarker': 'from-yellow-500 to-orange-500', 
+                      'fourMarker': 'from-orange-500 to-red-500',
+                      'fiveMarker': 'from-red-500 to-pink-500'
+                    };
+                    const icons = {
+                      'oneMarker': '🟢',
+                      'threeMarker': '🟡',
+                      'fourMarker': '🟠', 
+                      'fiveMarker': '🔴'
+                    };
+                    
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => setActivePracticeTab(tab.key)}
+                        className={`glass-card p-4 rounded-xl transition-all duration-300 hover:scale-105 relative overflow-hidden ${
+                          activePracticeTab === tab.key ? 'ring-2 ring-indigo-500 shadow-xl' : ''
+                        }`}
+                      >
+                        <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${gradients[tab.key as keyof typeof gradients]}`}></div>
+                        <div className="text-center">
+                          <div className="text-xl mb-1">{icons[tab.key as keyof typeof icons]}</div>
+                          <div className="font-bold text-sm text-gray-900 dark:text-gray-100">{tab.label}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{count} Questions</div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                {/* Questions Content */}
-                <div className="p-4 sm:p-6">
-                  <div className="space-y-4" key={`${activePracticeTab}-${pinnedQuestions.length}`}>
+                {/* Questions Display */}
+                <div className="glass-card rounded-3xl p-6 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-pink-500/5"></div>
+                  <div className="relative z-10">
+                    <div className="mb-6">
+                      <h3 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                        {questionCategories.find(c => c.key === activePracticeTab)?.label} Questions
+                        {((note.categorizedQuestions as any).theory || (note.categorizedQuestions as any).practical) && (
+                          <span className="ml-2 text-sm font-normal text-gray-500">({activePracticeType})</span>
+                        )}
+                      </h3>
+                    </div>
+                    
+                    <div className="space-y-6" key={`${activePracticeTab}-${pinnedQuestions.length}`}>
+                      {(() => {
+                        const currentQuestions = (note.categorizedQuestions as any).theory ? 
+                          (note.categorizedQuestions as any)[activePracticeType] :
+                          note.categorizedQuestions;
+                        const allQuestions = currentQuestions?.[activePracticeTab] || [];
+                        const currentPage = practiceQuestionPages[activePracticeTab] || 1;
+                        const questionsPerPage = 5;
+                        const startIndex = (currentPage - 1) * questionsPerPage;
+                        const endIndex = startIndex + questionsPerPage;
+                        const questionsToShow = allQuestions.slice(startIndex, endIndex);
+                        
+                        if (questionsToShow.length === 0) {
+                          return (
+                            <div className="text-center py-12">
+                              <div className="w-16 h-16 glass-card rounded-2xl flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-gray-500/20 to-gray-600/20">
+                                <span className="text-2xl">📝</span>
+                              </div>
+                              <p className="text-gray-500 dark:text-gray-400">No questions available for {activePracticeTab}</p>
+                            </div>
+                          );
+                        }
+                        
+                        const sortedQuestions = questionsToShow.sort((a, b) => {
+                          const aIndex = allQuestions.indexOf(a);
+                          const bIndex = allQuestions.indexOf(b);
+                          const aPinned = pinnedQuestions.some(pin => 
+                            pin.questionIndex === aIndex && pin.category === activePracticeTab
+                          );
+                          const bPinned = pinnedQuestions.some(pin => 
+                            pin.questionIndex === bIndex && pin.category === activePracticeTab
+                          );
+                          if (aPinned && !bPinned) return -1;
+                          if (!aPinned && bPinned) return 1;
+                          return 0;
+                        });
+                        
+                        return sortedQuestions.map((q: any, index: number) => {
+                          const questionIndex = allQuestions.indexOf(q);
+                          const isPinned = pinnedQuestions.some(pin => 
+                            pin.questionIndex === questionIndex && pin.category === activePracticeTab
+                          );
+                          return (
+                            <PracticeQuestionCard 
+                              key={`${activePracticeTab}-${questionIndex}-${isPinned}`} 
+                              question={{...q, _id: questionIndex.toString()}} 
+                              index={index} 
+                              activePracticeTab={activePracticeTab}
+                              questionCategories={questionCategories}
+                              onPin={handlePinQuestion}
+                              isPinned={isPinned}
+                              allQuestions={allQuestions}
+                              currentIndex={questionIndex}
+                              sectionType={activePracticeType as 'theory' | 'practical'}
+                            />
+                          );
+                        });
+                      })()}
+                    </div>
+                    
+                    {/* Modern Pagination */}
                     {(() => {
                       const currentQuestions = (note.categorizedQuestions as any).theory ? 
                         (note.categorizedQuestions as any)[activePracticeType] :
                         note.categorizedQuestions;
                       const allQuestions = currentQuestions?.[activePracticeTab] || [];
+                      const totalPages = Math.ceil(allQuestions.length / 5);
                       const currentPage = practiceQuestionPages[activePracticeTab] || 1;
-                      const questionsPerPage = 10;
-                      const startIndex = (currentPage - 1) * questionsPerPage;
-                      const endIndex = startIndex + questionsPerPage;
-                      const questionsToShow = allQuestions.slice(startIndex, endIndex);
                       
-                      if (questionsToShow.length === 0) {
-                        return <div className="text-center py-8 text-gray-500">No questions found for {activePracticeTab}</div>;
-                      }
+                      if (totalPages <= 1) return null;
                       
-                      // Sort questions to show pinned ones first
-                      console.log('Sorting questions. Pinned questions:', pinnedQuestions);
-                      console.log('Active practice tab:', activePracticeTab);
-                      const sortedQuestions = questionsToShow.sort((a, b) => {
-                        const aIndex = allQuestions.indexOf(a);
-                        const bIndex = allQuestions.indexOf(b);
-                        const aPinned = pinnedQuestions.some(pin => 
-                          pin.questionIndex === aIndex && pin.category === activePracticeTab
-                        );
-                        const bPinned = pinnedQuestions.some(pin => 
-                          pin.questionIndex === bIndex && pin.category === activePracticeTab
-                        );
-                        console.log(`Question ${aIndex} pinned: ${aPinned}, Question ${bIndex} pinned: ${bPinned}`);
-                        if (aPinned && !bPinned) return -1;
-                        if (!aPinned && bPinned) return 1;
-                        return 0;
-                      });
-                      
-                      return sortedQuestions.map((q: any, index: number) => {
-                        const questionIndex = allQuestions.indexOf(q);
-                        const isPinned = pinnedQuestions.some(pin => 
-                          pin.questionIndex === questionIndex && pin.category === activePracticeTab
-                        );
-                        return (
-                          <PracticeQuestionCard 
-                            key={`${questionIndex}-${isPinned}`} 
-                            question={{...q, _id: questionIndex.toString()}} 
-                            index={index} 
-                            activePracticeTab={activePracticeTab}
-                            questionCategories={questionCategories}
-                            onPin={handlePinQuestion}
-                            isPinned={isPinned}
-                          />
-                        );
-                      });
+                      return (
+                        <div className="flex justify-center items-center gap-3 mt-8 pt-6 border-t border-white/20 dark:border-gray-700/50">
+                          <span className="glass-card px-4 py-2 rounded-full text-sm font-medium bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                            Page {currentPage} of {totalPages}
+                          </span>
+                          <div className="flex gap-2">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                              <button
+                                key={pageNum}
+                                onClick={() => setPracticeQuestionPages(prev => ({ ...prev, [activePracticeTab]: pageNum }))}
+                                className={`w-10 h-10 rounded-xl text-sm font-bold transition-all duration-300 hover:scale-110 ${
+                                  currentPage === pageNum
+                                    ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                                    : 'glass-card hover:bg-white/50 dark:hover:bg-gray-800/50 text-gray-600 dark:text-gray-300'
+                                }`}
+                              >
+                                {pageNum}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
                     })()}
                   </div>
-                  
-                  {/* Pagination */}
-                  {(() => {
-                    const currentQuestions = (note.categorizedQuestions as any).theory ? 
-                      (note.categorizedQuestions as any)[activePracticeType] :
-                      note.categorizedQuestions;
-                    const allQuestions = currentQuestions?.[activePracticeTab] || [];
-                    const totalPages = Math.ceil(allQuestions.length / 10);
-                    const currentPage = practiceQuestionPages[activePracticeTab] || 1;
-                    
-                    if (totalPages <= 1) return null;
-                    
-                    return (
-                      <div className="flex justify-center items-center gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <span className="text-sm text-gray-600 dark:text-gray-400 mr-4">
-                          Page {currentPage} of {totalPages} ({allQuestions.length} questions)
-                        </span>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
-                          <button
-                            key={pageNum}
-                            onClick={() => setPracticeQuestionPages(prev => ({ ...prev, [activePracticeTab]: pageNum }))}
-                            className={`w-8 h-8 rounded-full text-sm font-medium transition-all duration-200 ${
-                              currentPage === pageNum
-                                ? 'bg-blue-500 text-white shadow-md'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                            }`}
-                          >
-                            {pageNum}
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                  
-
                 </div>
-              </div>
+              </>
             ) : (
-              <div className="p-8 text-center">
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/30 rounded-2xl p-8">
-                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl">🎯</span>
+              <div className="glass-card rounded-3xl p-12 text-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-pink-500/10"></div>
+                <div className="relative z-10">
+                  <div className="w-24 h-24 glass-card rounded-3xl flex items-center justify-center mx-auto mb-6 bg-gradient-to-br from-indigo-500/20 to-purple-500/20">
+                    <span className="text-4xl">🎯</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Ready to Practice?</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">Ready to Practice?</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto text-lg">
                     Generate comprehensive practice questions categorized by marks to test your understanding and prepare for exams.
                   </p>
                   <Button 
                     onClick={() => handleGenerate('categorized')} 
                     isLoading={generating === 'categorized'}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-lg px-8 py-3"
+                    className="modern-button bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white text-lg px-8 py-4 rounded-2xl hover:scale-105 transition-all duration-300 shadow-xl"
                   >
                     🚀 Generate Practice Questions
                   </Button>
@@ -1073,13 +1419,13 @@ export default function NoteDetailPage() {
       case 'mcq':
         return (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-              <Button onClick={() => setIsQuizModalOpen(true)} isLoading={generating === 'quiz'}>
+            <div className="p-3 md:p-4 lg:p-6 border-b border-gray-200 dark:border-gray-700">
+              <Button onClick={() => setIsQuizModalOpen(true)} isLoading={generating === 'quiz'} className="w-full sm:w-auto">
                 Generate New MCQ Quiz
               </Button>
             </div>
             
-            <div className="p-4 sm:p-6">
+            <div className="p-3 md:p-4 lg:p-6">
               <div className="space-y-3">
                 {(() => {
                   if (quizzes.length === 0) {
@@ -1092,21 +1438,21 @@ export default function NoteDetailPage() {
                   const quizzesToShow = quizzes.slice(startIndex, endIndex);
                   
                   return quizzesToShow.map(quiz => (
-                    <div key={quiz._id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div key={quiz._id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 md:p-4">
+                        <div className="flex flex-col gap-3">
                           <div className="flex-grow">
-                            <span className="font-medium break-words text-gray-800 dark:text-gray-200">{quiz.title}</span>
+                            <span className="font-medium break-words text-gray-800 dark:text-gray-200 text-sm md:text-base">{quiz.title}</span>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-sm text-gray-500 dark:text-gray-400">{quiz.questionCount} MCQs</span>
+                              <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">{quiz.questionCount} MCQs</span>
                             </div>
                           </div>
-                          <div className="flex flex-wrap gap-2 w-full sm:w-auto justify-end">
-                              <Button onClick={() => router.push(`/study-room?quizId=${quiz._id}`)} variant="secondary">Host</Button>
-                              <Button onClick={() => router.push(`/quiz/${quiz._id}`)}>Solo</Button>
+                          <div className="button-group">
+                              <Button onClick={() => router.push(`/study-room?quizId=${quiz._id}`)} variant="secondary" size="sm" className="flex-1 sm:flex-none">Host</Button>
+                              <Button onClick={() => router.push(`/quiz/${quiz._id}`)} size="sm" className="flex-1 sm:flex-none">Solo</Button>
                               <Button 
                                   variant="secondary" 
                                   size="sm" 
-                                  className="text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/50 px-3"
+                                  className="text-red-600 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-900/50 px-3 flex-shrink-0"
                                   onClick={() => handleDeleteQuizClick(quiz)}
                               >
                                 <FiTrash2 />
@@ -1150,15 +1496,16 @@ export default function NoteDetailPage() {
       case 'mindmap':
         return (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-semibold">Content Mind Map</h2>
+            <div className="p-3 md:p-4 lg:p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <h2 className="text-xl md:text-2xl font-semibold">Content Mind Map</h2>
                 {note.mindMap && (
                   <Button 
                     onClick={() => handleGenerate('mindmap')} 
                     isLoading={generating === 'mindmap'}
                     variant="secondary"
                     size="sm"
+                    className="w-full sm:w-auto"
                   >
                     🔄 Regenerate
                   </Button>
@@ -1167,12 +1514,12 @@ export default function NoteDetailPage() {
             </div>
             
             {note.mindMap ? (
-              <div className="p-4 sm:p-6">
+              <div className="p-3 md:p-4 lg:p-6">
                 <MindMap data={note.mindMap} />
               </div>
             ) : (
-              <div className="p-4 sm:p-6">
-                <Button onClick={() => handleGenerate('mindmap')} isLoading={generating === 'mindmap'}>
+              <div className="p-3 md:p-4 lg:p-6 text-center">
+                <Button onClick={() => handleGenerate('mindmap')} isLoading={generating === 'mindmap'} className="w-full sm:w-auto">
                   Generate Mind Map
                 </Button>
               </div>
@@ -1187,35 +1534,47 @@ export default function NoteDetailPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-4">
-        <button 
-          onClick={() => router.back()} 
-          className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
-          aria-label="Go back"
-        >
-          <FiArrowLeft className="w-6 h-6" />
-        </button>
-        <h1 className="text-2xl sm:text-3xl font-bold truncate">{note.title}</h1>
+    <>
+      <style dangerouslySetInnerHTML={{ __html: getCodeStyles() }} />
+      <div className="space-y-4 md:space-y-8 page-transition mobile-content">
+      <div className="glass-card p-4 md:p-6 rounded-2xl md:rounded-3xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full blur-xl float"></div>
+        <div className="relative z-10 flex items-center gap-3 md:gap-4">
+          <button 
+            onClick={() => router.push('/subjects')} 
+            className="p-2 md:p-3 rounded-xl md:rounded-2xl hover:bg-white/20 dark:hover:bg-gray-800/50 transition-all duration-300 backdrop-blur-sm flex-shrink-0"
+            aria-label="Go back"
+          >
+            <FiArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl md:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent truncate">{note.title}</h1>
+            <p className="text-gray-600 dark:text-gray-400 text-xs md:text-sm mt-1">AI-Enhanced Study Material</p>
+          </div>
+        </div>
       </div>
       
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
-          <TabButton tabName="summary" label="Summary" icon={FiFileText} />
-          <TabButton tabName="flashcards" label="Flashcards" icon={FiClipboard} />
-          <TabButton tabName="practice" label="Practice Questions" icon={FiHelpCircle} />
-          <TabButton tabName="mcq" label="MCQ Quizzes" icon={FiEdit} />
-          <TabButton tabName="mindmap" label="Mind Map" icon={FiShare2} />
-          <TabButton 
-            tabName="chat" 
-            label="Doubt Solver" 
-            icon={FiMessageSquare} 
-            disabled={note.embeddingStatus !== 'completed'}
-          />
-        </nav>
+      <div className={`notes-sticky-nav ${isNotesScrolled ? 'scrolled' : ''}`}>
+        <div className="glass-card rounded-2xl p-2 mx-0">
+          <nav className="scrollable-tabs" aria-label="Tabs">
+            <div className="flex space-x-2 min-w-max px-2">
+              <TabButton tabName="summary" label="Summary" icon={FiFileText} />
+              <TabButton tabName="flashcards" label="Flashcards" icon={FiClipboard} />
+              <TabButton tabName="practice" label="Practice Questions" icon={FiHelpCircle} />
+              <TabButton tabName="mcq" label="MCQ Quizzes" icon={FiEdit} />
+              <TabButton tabName="mindmap" label="Mind Map" icon={FiShare2} />
+              <TabButton 
+                tabName="chat" 
+                label="Doubt Solver" 
+                icon={FiMessageSquare} 
+                disabled={note.embeddingStatus !== 'completed'}
+              />
+            </div>
+          </nav>
+        </div>
       </div>
 
-      <div className="mt-6">
+      <div>
         {renderContent()}
       </div>
 
@@ -1235,6 +1594,9 @@ export default function NoteDetailPage() {
           itemName={`quiz "${selectedQuiz.title}"`}
         />
       )}
-    </div>
+
+
+      </div>
+    </>
   );
 }

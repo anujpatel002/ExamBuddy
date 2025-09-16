@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { User } from '@/types';
 import api from '@/lib/api';
 import { io } from 'socket.io-client';
+import { sanitizeForLogging } from '@/utils/sanitization';
 
 interface AuthContextType {
   user: User | null;
@@ -48,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     socket.emit('registerUser', user._id);
     
     socket.on('plan-updated', async (data) => {
-      console.log('Received plan-updated event:', data);
+      console.log('Received plan-updated event:', sanitizeForLogging(JSON.stringify(data)));
       
       // Force complete refresh from server with cache busting
       try {
@@ -56,7 +57,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const freshUser = { ...profile, token: user.token };
         localStorage.setItem('userInfo', JSON.stringify(freshUser));
         setUser(freshUser);
-        console.log('User data refreshed from server:', freshUser.subscription);
+        console.log('User data refreshed from server:', sanitizeForLogging(JSON.stringify(freshUser.subscription)));
         
         // Force page reload to ensure all components update
         setTimeout(() => {

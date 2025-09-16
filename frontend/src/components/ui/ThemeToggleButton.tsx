@@ -13,19 +13,21 @@ const ThemeToggleButton = () => {
   }, []);
 
   if (!mounted) {
-    // Return a placeholder to avoid layout shift on server render
-    return <div className="w-9 h-9" />;
+    return null;
   }
 
   return (
     <button
       // The logic now uses 'resolvedTheme' to decide what to switch to
       onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-      className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+      className="p-2 rounded-xl glass-card backdrop-blur-sm theme-text-secondary hover:theme-bg-secondary hover:scale-110 transition-all duration-300 shadow-lg hover:shadow-xl"
       aria-label="Toggle theme"
     >
       {/* The icon also uses 'resolvedTheme' to be accurate */}
-      {resolvedTheme === 'dark' ? <FiSun className="w-5 h-5" /> : <FiMoon className="w-5 h-5" />}
+      {resolvedTheme === 'dark' ? 
+        <FiSun className="w-5 h-5 text-yellow-500 hover:rotate-180 transition-transform duration-500" /> : 
+        <FiMoon className="w-5 h-5 text-indigo-600 hover:rotate-12 transition-transform duration-300" />
+      }
     </button>
   );
 };

@@ -1,0 +1,204 @@
+/* Global Layout Fix */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+/* Desktop Layout Fix */
+@media (min-width: 768px) {
+  .dashboard-container {
+    display: flex;
+    min-height: 100vh;
+    width: 100vw;
+  }
+  
+  .sidebar {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 16rem !important;
+    height: 100vh !important;
+    z-index: 30 !important;
+    transform: translateX(0) !important;
+    flex-shrink: 0;
+  }
+  
+  .main-content {
+    margin-left: 16rem !important;
+    width: calc(100vw - 16rem) !important;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+  
+  .content-wrapper {
+    flex: 1;
+    padding: 2rem 1rem 1rem 1rem;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  
+  /* Desktop sticky navigation */
+  .notes-sticky-nav {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+}
+
+/* Mobile Layout */
+@media (max-width: 767px) {
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    padding-top: 0;
+  }
+  
+  .content-wrapper {
+    padding: 0.5rem;
+  }
+  
+  /* Mobile navbar - only stick when scrolling down */
+  .navbar {
+    position: relative;
+    z-index: 50;
+    height: 64px;
+    transition: all 0.3s ease;
+  }
+  
+  .navbar.scrolled {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+  }
+  
+  .sidebar-open .navbar.scrolled {
+    z-index: 20;
+  }
+  
+  /* Mobile sticky navigation - stick under navbar */
+  .notes-sticky-nav {
+    position: sticky;
+    top: 64px;
+    z-index: 49;
+    background: rgba(249, 250, 251, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    margin-bottom: 1rem;
+  }
+  
+  .dark .notes-sticky-nav {
+    background: rgba(17, 24, 39, 0.95);
+    border-bottom: 1px solid rgba(75, 85, 99, 0.5);
+  }
+  
+  /* Prevent navigation overlap with sidebar */
+  .sidebar-open .notes-sticky-nav {
+    z-index: 20;
+  }
+  
+  .sidebar-open .navbar {
+    z-index: 20;
+  }
+  
+  .sidebar-open .navbar.scrolled {
+    z-index: 20;
+  }
+  
+  /* Mobile sidebar overlay */
+  .sidebar {
+    z-index: 45 !important;
+  }
+  
+  /* Mobile content spacing */
+  .mobile-content {
+    padding: 0.75rem;
+  }
+  
+  .content-wrapper {
+    padding-top: 2rem;
+  }
+  
+  /* Mobile card adjustments - only for notes page */
+  .mobile-content .glass-card {
+    margin: 0.5rem 0;
+    padding: 1rem;
+  }
+  
+  /* Mobile button groups - only for notes page */
+  .mobile-content .button-group {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+  
+  @media (min-width: 480px) {
+    .mobile-content .button-group {
+      flex-direction: row;
+      align-items: center;
+    }
+  }
+}
+
+/* Component Alignment Fixes */
+.card-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+@media (max-width: 767px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+.button-group {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.text-content {
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+
+.center-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.space-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Mobile scrollable tabs */
+@media (max-width: 767px) {
+  .scrollable-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .scrollable-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .scrollable-tabs .flex {
+    min-width: max-content;
+  }
+}

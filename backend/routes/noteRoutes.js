@@ -35,7 +35,7 @@ const upload = multer({
     cb(null, true);
   },
   limits: {
-    fileSize: isMobileRequest(req) ? 10 * 1024 * 1024 : 100 * 1024 * 1024, // 10MB for mobile, 100MB for desktop
+    fileSize: 100 * 1024 * 1024, // 100MB max
     fieldSize: 5 * 1024 * 1024 // 5MB field size for mobile compatibility
   }
 });

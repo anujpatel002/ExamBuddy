@@ -164,9 +164,14 @@ const generateMoreQuestions = asyncHandler(async (req, res) => {
       if (!subject.questionBank[targetType]) {
         subject.questionBank[targetType] = {};
       }
-      subject.questionBank[targetType][category] = [];
+      if (Object.prototype.hasOwnProperty.call(subject.questionBank, targetType) && 
+          Object.prototype.hasOwnProperty.call(subject.questionBank[targetType], category)) {
+        subject.questionBank[targetType][category] = [];
+      }
     } else {
-      subject.questionBank[category] = [];
+      if (Object.prototype.hasOwnProperty.call(subject.questionBank, category)) {
+        subject.questionBank[category] = [];
+      }
     }
     
     subject.markModified('questionBank');

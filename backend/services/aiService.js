@@ -345,6 +345,13 @@ export const generateSummary = async (textContent) => {
   
   CRITICAL: Return ONLY the content inside the body tags. DO NOT include <!DOCTYPE html>, <html>, <head>, or <body> tags.
   
+  VISUAL ELEMENTS REQUIREMENTS:
+  - Include ASCII diagrams where applicable using <pre> tags
+  - Create visual tables for comparisons and data
+  - Use structured layouts with proper spacing
+  - Add flowcharts using text-based representations
+  - Include step-by-step visual procedures
+  
   STRICT FORMATTING RULES:
   - Use <h1 style="color: #0f172a; text-align: center; border-bottom: 3px solid #0f172a; padding-bottom: 12px; margin: 32px 0 24px 0; font-size: 28px; font-weight: 700;"> for main title
   - Use <h2 style="color: #1e293b; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; margin: 32px 0 20px 0; font-size: 22px; font-weight: 600;"> for major sections
@@ -598,7 +605,14 @@ export const generateMarkBasedQuestions = async (textContent, markers = null, ex
       '\n\nCRITICAL: Generate ALL questions and answers ONLY in ENGLISH language.';
       
     const prompt = `${detectedLanguage === 'gujarati' ? 
-      `ગુજરાતી ભાષામાં ${count} પ્રશ્નો બનાવો જે ${markers} ગુણના હોય.
+      `🎯 સર્જનાત્મક પ્રશ્ન પેટર્ન:
+- 25% પરંપરાગત પ્રશ્નો ("વ્યાખ્યા આપો", "શું છે")
+- 25% પરિસ્થિતિ આધારિત ("જો આવું થાય તો શું થશે")
+- 20% તુલનાત્મક વિશ્લેષણ ("તુલના કરો")
+- 15% ઉપયોગ આધારિત ("કેવી રીતે લાગુ કરશો")
+- 15% વિવેચનાત્મક વિચારણા ("અસરનું મૂલ્યાંકન કરો")
+
+ગુજરાતી ભાષામાં ${count} પ્રશ્નો બનાવો જે ${markers} ગુણના હોય.
 
 મહત્વપૂર્ણ નિયમો:
 - બધા પ્રશ્નો અને જવાબો ફક્ત ગુજરાતી ભાષામાં
@@ -649,9 +663,9 @@ Return ONLY valid JSON array:
 
 AVOID these questions: ${existingQuestionsString}${languageSpecificInstruction}
 
-CRITICAL: Use ONLY information from the provided text below. Do NOT generate questions about topics not mentioned in this text.
+CRITICAL: Use ONLY information from the provided text below. Do NOT generate questions about topics not mentioned in this text. ANALYZE THE ENTIRE CONTENT THOROUGHLY.
 
-TEXT: "${textContent.substring(0, 2000)}"`;
+TEXT: "${textContent}"`;
     
     const rawResponse = await generateContent(prompt);
     const result = cleanAndParseJson(rawResponse);
@@ -766,170 +780,126 @@ export const generateMindMap = async (textContent) => {
   const languageInstruction = getLanguageInstruction(detectedLanguage);
   
   try {
-    const prompt = `Create an EXTREMELY DETAILED and COMPREHENSIVE mind map with DEEP HIERARCHICAL STRUCTURE covering ALL aspects of the content.
+    const prompt = `CRITICAL: Analyze the ENTIRE provided content thoroughly and create a comprehensive hierarchical mind map structure.
 
-Return ONLY valid JSON with MAXIMUM DEPTH and DETAIL:
+IMPORTANT REQUIREMENTS:
+1. Scan ALL sections, units, chapters, and topics in the content
+2. Extract key points, definitions, examples, code snippets, and practical applications
+3. Create a deep hierarchical structure with multiple levels
+4. Include specific details from the actual content, not generic information
+5. Generate in the same language as the input content
+
+Return ONLY valid JSON in this exact structure:
+
+# Main Topic (from content)
+## Unit 1: [First major section from content]
+### Key Concepts
+- Definition 1 from content
+- Definition 2 from content
+### Examples
+- Example 1 from content
+- Example 2 from content
+### Code/Practical (if applicable)
+- Code snippet 1
+- Implementation detail 1
+## Unit 2: [Second major section from content]
+### Key Concepts
+- Concept A from content
+- Concept B from content
+### Applications
+- Use case 1 from content
+- Use case 2 from content
+## Unit 3: [Third major section from content]
+### Advanced Topics
+- Advanced concept 1
+- Advanced concept 2
+
+Convert this structure to JSON format:
 {
-  "name": "Complete Overview",
-  "description": "Comprehensive mind map with deep hierarchical structure covering all theoretical and practical aspects in extreme detail",
-  "keyPoints": [
-    "Detailed theoretical concepts with definitions and explanations",
-    "Complete practical implementations with step-by-step code examples",
-    "Comprehensive syntax rules and programming constructs",
-    "Extensive real-world applications and use cases",
-    "Detailed algorithms, procedures, and methodologies",
-    "In-depth analysis of advantages, disadvantages, and comparisons",
-    "Complete workflow processes and implementation strategies"
-  ],
-  "examples": [
-    "Detailed theoretical example with full explanation",
-    "Complete code implementation: function demo() { return 'Hello World'; }",
-    "Step-by-step syntax: if (condition) { executeAction(); }",
-    "Real application: Used in enterprise web development for user authentication"
-  ],
+  "name": "Main Topic from Content",
+  "description": "Comprehensive overview covering all units and topics",
+  "keyPoints": ["Overall key point 1", "Overall key point 2", "Overall key point 3"],
+  "examples": ["Main example 1", "Main example 2"],
   "children": [
     {
-      "name": "1. Theoretical Foundations",
-      "description": "Complete theoretical understanding with definitions, principles, and conceptual framework",
-      "keyPoints": ["Comprehensive definitions with etymology", "Core principles with detailed explanations", "Conceptual understanding with visual models", "Historical context and evolution", "Theoretical advantages and limitations"],
-      "examples": ["Definition with real-world analogy", "Principle demonstration with examples", "Conceptual model visualization"],
+      "name": "Unit 1: [Actual unit name from content]",
+      "description": "Description of this unit from content",
+      "keyPoints": ["Key concept 1 from unit", "Key concept 2 from unit"],
+      "examples": ["Example from unit 1", "Code example if applicable"],
       "children": [
         {
-          "name": "1.1 Core Definitions",
-          "description": "Detailed definitions of all key terms and concepts",
-          "keyPoints": ["Primary definition with context", "Alternative definitions and interpretations", "Related terminology and synonyms", "Common misconceptions and clarifications"],
-          "examples": ["Definition example 1", "Definition example 2", "Clarification example"],
-          "children": [
-            {
-              "name": "1.1.1 Primary Concepts",
-              "keyPoints": ["Fundamental concept explanation", "Key characteristics and properties", "Relationship to other concepts"],
-              "examples": ["Primary concept example", "Characteristic demonstration"],
-              "children": []
-            },
-            {
-              "name": "1.1.2 Secondary Concepts",
-              "keyPoints": ["Supporting concept details", "Derived properties and implications", "Practical significance"],
-              "examples": ["Secondary concept example", "Implication demonstration"],
-              "children": []
-            }
-          ]
+          "name": "Key Concepts",
+          "description": "Core definitions and principles",
+          "keyPoints": ["Definition 1", "Definition 2", "Principle 1"],
+          "examples": ["Specific example 1", "Specific example 2"],
+          "children": []
         },
         {
-          "name": "1.2 Fundamental Principles",
-          "description": "Core principles governing the subject matter",
-          "keyPoints": ["Principle 1 with detailed explanation", "Principle 2 with applications", "Principle interactions and dependencies", "Exceptions and special cases"],
-          "examples": ["Principle application example", "Exception case example"],
-          "children": [
-            {
-              "name": "1.2.1 Primary Principles",
-              "keyPoints": ["Main governing rules", "Mathematical foundations", "Logical framework"],
-              "examples": ["Mathematical example", "Logical proof example"],
-              "children": []
-            }
-          ]
+          "name": "Examples & Applications",
+          "description": "Practical examples and use cases",
+          "keyPoints": ["Application 1", "Application 2"],
+          "examples": ["Real example 1", "Code snippet if applicable"],
+          "children": []
         }
       ]
     },
     {
-      "name": "2. Practical Implementation",
-      "description": "Complete implementation details with code examples, syntax, and best practices",
-      "keyPoints": ["Detailed syntax with all variations", "Step-by-step implementation process", "Best practices and coding standards", "Common pitfalls and how to avoid them", "Performance considerations and optimizations", "Error handling and debugging techniques"],
-      "examples": ["Complete function implementation", "Error handling example", "Optimization example"],
+      "name": "Unit 2: [Actual unit name from content]",
+      "description": "Description of this unit from content",
+      "keyPoints": ["Key concept from unit 2", "Important point from unit 2"],
+      "examples": ["Example from unit 2", "Practical application"],
       "children": [
         {
-          "name": "2.1 Syntax and Structure",
-          "description": "Complete syntax rules and structural patterns",
-          "keyPoints": ["Basic syntax rules with examples", "Advanced syntax patterns", "Structural conventions and standards", "Syntax variations across different contexts"],
-          "examples": ["Basic syntax: var x = 10;", "Advanced pattern: function(param) { return result; }", "Structure example with comments"],
-          "children": [
-            {
-              "name": "2.1.1 Basic Syntax Elements",
-              "keyPoints": ["Variable declarations and types", "Operators and expressions", "Control structures"],
-              "examples": ["let variable = value;", "if (condition) { action(); }", "for (let i = 0; i < n; i++) { }"],
-              "children": []
-            },
-            {
-              "name": "2.1.2 Advanced Syntax Patterns",
-              "keyPoints": ["Complex expressions and operations", "Advanced control flow", "Object-oriented patterns"],
-              "examples": ["Complex expression example", "Advanced loop example", "Class definition example"],
-              "children": []
-            }
-          ]
-        },
-        {
-          "name": "2.2 Implementation Strategies",
-          "description": "Detailed implementation approaches and methodologies",
-          "keyPoints": ["Step-by-step implementation process", "Alternative approaches and trade-offs", "Integration with existing systems", "Testing and validation strategies"],
-          "examples": ["Complete implementation example", "Alternative approach example", "Integration example"],
-          "children": [
-            {
-              "name": "2.2.1 Development Process",
-              "keyPoints": ["Planning and design phase", "Implementation phase details", "Testing and debugging process"],
-              "examples": ["Design pattern example", "Implementation step example", "Test case example"],
-              "children": []
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "3. Applications and Use Cases",
-      "description": "Comprehensive coverage of real-world applications and practical use cases",
-      "keyPoints": ["Industry-specific applications with details", "Real-world problem solving scenarios", "Case studies with complete analysis", "Performance metrics and benchmarks", "Scalability considerations", "Future trends and developments"],
-      "examples": ["Enterprise application example", "Performance benchmark example", "Scalability case study"],
-      "children": [
-        {
-          "name": "3.1 Industry Applications",
-          "description": "Specific applications across different industries",
-          "keyPoints": ["Web development applications", "Mobile app development", "Enterprise software solutions", "Data analysis and processing"],
-          "examples": ["E-commerce platform example", "Mobile app feature example", "Enterprise dashboard example"],
-          "children": [
-            {
-              "name": "3.1.1 Web Development",
-              "keyPoints": ["Frontend implementation details", "Backend integration patterns", "Database interaction methods"],
-              "examples": ["Frontend code example", "API integration example", "Database query example"],
-              "children": []
-            },
-            {
-              "name": "3.1.2 Mobile Development",
-              "keyPoints": ["Platform-specific implementations", "Cross-platform solutions", "Performance optimization techniques"],
-              "examples": ["Native implementation", "Cross-platform code", "Optimization example"],
-              "children": []
-            }
-          ]
+          "name": "Advanced Concepts",
+          "description": "Complex topics and theories",
+          "keyPoints": ["Advanced topic 1", "Advanced topic 2"],
+          "examples": ["Complex example 1", "Implementation detail"],
+          "children": []
         }
       ]
     }
   ]
 }
 
-CRITICAL REQUIREMENTS FOR MAXIMUM DETAIL:
-- Create EXTREMELY DEEP hierarchical structure with 4-5 levels of nesting
-- Include COMPREHENSIVE theoretical concepts AND complete practical implementations
-- In "examples" fields, include ACTUAL CODE SNIPPETS, complete functions, and real implementations
-- Provide DETAILED descriptions for every node explaining the concept thoroughly
-- Include EXTENSIVE keyPoints arrays with 5-7 detailed points per node
-- Cover ALL major and minor topics with exhaustive detail
-- Make it exam-focused with COMPLETE information students need
-- Use NUMBERED TOPICS (1., 2., 3.) and DEEP SUBTOPIC numbering (1.1.1, 1.1.2, 1.2.1, etc.)
-- Focus on COMPREHENSIVE TOPIC COVERAGE with maximum depth
-- Include advantages, disadvantages, use cases, examples, and implementation details
-- Provide step-by-step processes, complete code examples, and real-world applications
-- Make every node information-rich with detailed explanations and multiple examples
+CRITICAL: Extract information from ALL parts of the provided content. Do not miss any units, chapters, or sections.${languageInstruction}
 
-${hasCodeContent ? 
-  'SPECIAL FOCUS: Since this content contains code, ensure the mind map includes actual syntax examples, function definitions, variable declarations, and implementation patterns alongside theoretical concepts.' :
-  'FOCUS: Create comprehensive coverage of all theoretical concepts, definitions, principles, and practical applications from the unit.'}
-
-Analyze the COMPLETE content and create ONE EXTREMELY DETAILED unified mind map with MAXIMUM DEPTH and COMPREHENSIVE COVERAGE.
-EXTRACT EVERY IMPORTANT DETAIL, CONCEPT, IMPLEMENTATION, AND EXAMPLE.${languageInstruction}
-TEXT: "${textContent}"`;
+FULL CONTENT TO ANALYZE: "${textContent}"`;
     
     const rawResponse = await generateContent(prompt);
-    return cleanAndParseJson(rawResponse);
+    console.log('Mind map raw response (first 500 chars):', rawResponse.substring(0, 500));
+    
+    // Clean HTML entities before parsing
+    let cleanedResponse = rawResponse
+      .replace(/&quot;/g, '"')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&#x27;/g, "'")
+      .replace(/&#x2F;/g, '/');
+    
+    const result = cleanAndParseJson(cleanedResponse);
+    
+    // Ensure proper structure
+    if (!result || typeof result !== 'object') {
+      return {
+        name: 'Generated Mind Map',
+        description: 'Content overview and key concepts',
+        keyPoints: ['Please regenerate for proper structure', 'The AI response contained content but was not in proper JSON format'],
+        examples: ['Try regenerating the mind map for better results'],
+        children: []
+      };
+    }
+    
+    return result;
   } catch (error) {
     console.error('Error in generateMindMap:', error);
-    throw new Error('Failed to generate mind map: ' + error.message);
+    return {
+      name: 'Generated Mind Map',
+      description: 'Content overview and key concepts', 
+      keyPoints: ['Please regenerate for proper structure', 'The AI response contained content but was not in proper JSON format'],
+      examples: ['Try regenerating the mind map for better results'],
+      children: []
+    };
   }
 };
 
@@ -1039,7 +1009,7 @@ export const generateFlashcards = async (textContent, existingCount = 0, type = 
   try {
     if (hasCodeContent) {
       // Generate theory flashcards - focus on concepts, definitions, principles
-      const cardCount = requestCount || 15;
+      const cardCount = requestCount || 20;
       const avoidQuestions = existingQuestions.length > 0 ? `\nAVOID these existing questions: ${existingQuestions.slice(0, 10).join(', ')}` : '';
       
       // Detect language and adjust prompts accordingly
@@ -1114,7 +1084,7 @@ ACTUAL TEXT CONTENT: "${textContent}"`;
       }
     } else {
       // Generate regular flashcards for non-code content - treat all languages the same
-      const cardCount = requestCount || 15;
+      const cardCount = requestCount || 20;
       const detectedLanguage = detectLanguage(textContent);
       const languageInstruction = getLanguageInstruction(detectedLanguage);
       
@@ -1200,4 +1170,60 @@ export const generateQuiz = async (textContent, questionCount = 10) => {
   
   const rawResponse = await generateContent(prompt);
   return cleanAndParseJson(rawResponse);
+};
+
+export const generateAudioOverview = async (sources, format) => {
+  const combinedContent = sources.map(s => `${s.name}:\n${s.content}`).join('\n\n');
+  const detectedLanguage = detectLanguage(combinedContent);
+  const languageInstruction = getLanguageInstruction(detectedLanguage);
+  
+  const formatPrompts = {
+    'overview': {
+      duration: '5-10 minutes',
+      style: 'conversational overview covering main topics and key concepts',
+      depth: 'high-level summary with essential points'
+    },
+    'deep-dive': {
+      duration: '15-25 minutes',
+      style: 'detailed analysis with examples, explanations, and practical applications',
+      depth: 'comprehensive coverage with in-depth explanations'
+    },
+    'summary': {
+      duration: '2-5 minutes',
+      style: 'quick summary hitting only the most important points',
+      depth: 'key takeaways and essential concepts only'
+    }
+  };
+  
+  const formatConfig = formatPrompts[format] || formatPrompts['overview'];
+  
+  const prompt = `Create a podcast-style audio script for a ${formatConfig.duration} ${formatConfig.style}.
+
+STYLE REQUIREMENTS:
+- Write in a natural, conversational tone as if speaking to a student
+- Use transitions like "Now let's move on to...", "Another important point is...", "To summarize..."
+- Include brief pauses indicated by [PAUSE]
+- Make it engaging and easy to follow when spoken aloud
+- ${formatConfig.depth}
+
+FORMAT: Return a clean, readable script without special formatting - just the spoken content with natural flow.
+
+SOURCE MATERIALS:
+${combinedContent.substring(0, 4000)}
+
+${languageInstruction}
+
+Generate the audio script now:`;
+  
+  const transcript = await generateContent(prompt);
+  
+  // Estimate duration based on word count (average 150 words per minute)
+  const wordCount = transcript.split(' ').length;
+  const estimatedDuration = Math.ceil((wordCount / 150) * 60); // in seconds
+  
+  return {
+    transcript: transcript,
+    estimatedDuration: estimatedDuration,
+    audioUrl: null // No actual audio generation yet - just transcript
+  };
 };

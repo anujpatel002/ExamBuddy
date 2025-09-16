@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
-import { sanitizeHTML } from '@/utils/sanitizer';
+import { escapeHtml } from '@/utils/sanitization';
+import { formatCodeContent, containsCode, containsSteps, getCodeStyles } from '@/utils/codeFormatter';
 import Button from '@/components/ui/Button';
 import { FiArrowLeft, FiBookmark, FiTrash2 } from 'react-icons/fi';
 import SkeletonCard from '@/components/ui/SkeletonCard';
@@ -99,9 +100,13 @@ const PinnedQuestionCard = ({ pinnedQuestion, onUnpin }: {
               )}
             </div>
             
-            <h4 className="font-medium text-gray-900 dark:text-gray-100 leading-relaxed mb-3 break-words">
-              {pinnedQuestion.questionData.question}
-            </h4>
+            <div className="font-medium text-gray-900 dark:text-gray-100 leading-relaxed mb-3 break-words max-h-24 overflow-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+              {containsCode(pinnedQuestion.questionData.question) ? (
+                <div dangerouslySetInnerHTML={{ __html: formatCodeContent(pinnedQuestion.questionData.question) }} />
+              ) : (
+                <h4>{pinnedQuestion.questionData.question}</h4>
+              )}
+            </div>
             
             {showAnswer && (
               <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-700">
@@ -110,15 +115,13 @@ const PinnedQuestionCard = ({ pinnedQuestion, onUnpin }: {
                   <span className="text-sm font-semibold text-green-700 dark:text-green-300">ANSWER</span>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
-                  <div 
-                    className="prose dark:prose-invert prose-sm max-w-none text-sm leading-6 break-words"
-                    dangerouslySetInnerHTML={{ 
-                      __html: sanitizeHTML(pinnedQuestion.questionData.answer)
-                        .replace(/\n\n/g, '</p><p class="mt-3">')
-                        .replace(/\n/g, '<br>')
-                        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100 bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">$1</strong>')
-                    }} 
-                  />
+                  <div className="prose dark:prose-invert prose-sm max-w-none text-sm leading-6 break-words whitespace-pre-wrap">
+                    {(containsCode(pinnedQuestion.questionData.answer) || containsSteps(pinnedQuestion.questionData.answer)) ? (
+                      <div dangerouslySetInnerHTML={{ __html: formatCodeContent(pinnedQuestion.questionData.answer) }} />
+                    ) : (
+                      pinnedQuestion.questionData.answer
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -219,7 +222,9 @@ export default function PinnedQuestionsPage() {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
+    <>
+      <style dangerouslySetInnerHTML={{ __html: getCodeStyles() }} />
+      <div className="px-4 sm:px-6 lg:px-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div className="flex items-center gap-4">
           <button 
@@ -321,6 +326,7 @@ export default function PinnedQuestionsPage() {
           </Button>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

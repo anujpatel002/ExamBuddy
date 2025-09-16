@@ -9,7 +9,8 @@ import {
   generateQuiz, 
   generateMarkBasedQuestions, 
   generateTitle,
-  generateMindMap
+  generateMindMap,
+  generateAudioOverview as generateAudioScript
 } from '../services/aiService.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { parseAndSanitize } from '../utils/markdownParser.js';
@@ -554,16 +555,38 @@ const compareConcepts = asyncHandler(async (req, res) => {
 });
 
 const generateExamPaper = asyncHandler(async (req, res) => {
-    const subject = await Subject.findById(req.params.subjectId);
-    if (!subject || subject.user.toString() !== req.user._id.toString()) {
-        res.status(404);
-        throw new Error('Subject not found or user not authorized');
-    }
+    // Handle both subject-based and note-based exam generation
+    let content, title;
     
-    const notes = await Note.find({ subject: req.params.subjectId });
-    if (notes.length === 0) {
+    if (req.params.subjectId) {
+        // Subject-based generation
+        const subject = await Subject.findById(req.params.subjectId);
+        if (!subject || subject.user.toString() !== req.user._id.toString()) {
+            res.status(404);
+            throw new Error('Subject not found or user not authorized');
+        }
+        
+        const notes = await Note.find({ subject: req.params.subjectId });
+        if (notes.length === 0) {
+            res.status(400);
+            throw new Error('No notes found in this subject to generate exam paper from.');
+        }
+        
+        content = notes.map(note => `${note.title}:\n${note.textContent}`).join('\n\n---\n\n');
+        title = subject.name;
+    } else if (req.params.noteId) {
+        // Note-based generation
+        const note = await Note.findById(req.params.noteId);
+        if (!note || note.user.toString() !== req.user._id.toString()) {
+            res.status(404);
+            throw new Error('Note not found or user not authorized');
+        }
+        
+        content = note.textContent;
+        title = note.title;
+    } else {
         res.status(400);
-        throw new Error('No notes found in this subject to generate exam paper from.');
+        throw new Error('Either subjectId or noteId must be provided');
     }
     
     const { totalMarks, duration, distribution, bloomsTaxonomy } = req.body;
@@ -574,55 +597,82 @@ const generateExamPaper = asyncHandler(async (req, res) => {
         }
     };
     
-    emitProgress('Analyzing subject content...', 20);
-    
-    // Combine all note content
-    const combinedContent = notes.map(note => `${note.title}:\n${note.textContent}`).join('\n\n---\n\n');
-    
-    emitProgress('Generating exam paper...', 60);
+    emitProgress('Analyzing content...', 20);
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     
-    const prompt = `Generate a comprehensive exam paper based on the following content:
+    emitProgress('Generating exam questions...', 60);
+    
+    const prompt = `Generate exam questions based on the following content:
 
-${combinedContent}
+${content}
 
-Exam Requirements:
-- Total Marks: ${totalMarks}
-- Duration: ${duration} hours
-- Question Distribution:
-  * ${distribution.mcq1} x 1 Mark MCQ
-  * ${distribution.mark3} x 3 Mark Questions
-  * ${distribution.mark4} x 4 Mark Questions
-  * ${distribution.mark5} x 5 Mark Questions
+Generate questions in this JSON format:
+{
+  "questions": {
+    "oneMarker": [{"question": "...", "answer": "..."}],
+    "threeMarker": [{"question": "...", "answer": "..."}],
+    "fourMarker": [{"question": "...", "answer": "..."}],
+    "fiveMarker": [{"question": "...", "answer": "..."}]
+  }
+}
 
-Blooms Taxonomy Distribution:
-- Remember: ${bloomsTaxonomy.remember}%
-- Understand: ${bloomsTaxonomy.understand}%
-- Apply: ${bloomsTaxonomy.apply}%
-- Analyze: ${bloomsTaxonomy.analyze}%
-- Evaluate: ${bloomsTaxonomy.evaluate}%
-- Create: ${bloomsTaxonomy.create}%
+Question Distribution:
+- ${distribution?.oneMarker || 10} x 1 Mark Questions
+- ${distribution?.threeMarker || 6} x 3 Mark Questions  
+- ${distribution?.fourMarker || 4} x 4 Mark Questions
+- ${distribution?.fiveMarker || 4} x 5 Mark Questions
 
-Format the exam paper professionally with:
-1. Header with subject name, marks, and duration
-2. Clear instructions for students
-3. Well-organized sections for different question types
-4. Proper numbering and mark allocation
-5. Professional academic formatting
+Ensure questions are:
+1. Directly based on the provided content
+2. Appropriate for their mark allocation
+3. Clear and well-formatted
+4. Include detailed answers
 
-Return only the formatted exam paper content.`;
+Return only valid JSON.`;
+    
+    console.log('=== EXAM GENERATION LOG ===');
+    console.log('Content length:', content.length);
+    console.log('Title:', title);
+    console.log('Distribution:', distribution);
     
     const result = await model.generateContent(prompt);
-    const examPaper = result.response.text();
+    let responseText = result.response.text();
     
-    emitProgress('Formatting exam paper...', 90);
+    // Extract JSON from response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    let questions = {};
+    
+    if (jsonMatch) {
+        try {
+            const parsedData = JSON.parse(jsonMatch[0]);
+            questions = parsedData.questions || parsedData;
+            
+            console.log('Generated questions:');
+            Object.keys(questions).forEach(key => {
+                console.log(`${key}: ${questions[key]?.length || 0} questions`);
+                questions[key]?.forEach((q, i) => {
+                    console.log(`  ${i+1}. ${q.question?.substring(0, 100)}...`);
+                });
+            });
+        } catch (error) {
+            console.error('JSON parsing failed:', error);
+            throw new Error('Failed to parse generated questions');
+        }
+    } else {
+        console.error('No JSON found in response:', responseText.substring(0, 500));
+        throw new Error('Invalid response format from AI');
+    }
+    
+    emitProgress('Questions generated!', 90);
     
     await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
     
-    emitProgress('Exam paper ready!', 100);
-    res.json({ examPaper, subject: subject.name });
+    emitProgress('Exam ready!', 100);
+    console.log('=== END EXAM GENERATION LOG ===');
+    
+    res.json({ questions, title });
 });
 
 const createSubjectQuiz = asyncHandler(async (req, res) => {
@@ -672,6 +722,253 @@ const createSubjectQuiz = asyncHandler(async (req, res) => {
     res.json({ quiz, message: 'Subject quiz created successfully!' });
 });
 
+// NotebookLM functionality
+const analyzeDocuments = asyncHandler(async (req, res) => {
+    console.log('analyzeDocuments called with:', { 
+        sourcesCount: req.body.sources?.length, 
+        query: req.body.query 
+    });
+    
+    const { sources, query } = req.body;
+    
+    if (!sources || sources.length === 0) {
+        console.log('No sources provided');
+        return res.status(400).json({ message: 'No sources provided' });
+    }
+    
+    if (!process.env.GEMINI_API_KEY) {
+        console.log('GEMINI_API_KEY not found');
+        return res.status(500).json({ message: 'AI service not configured' });
+    }
+    
+    try {
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        
+        // Process sources and extract content from files if needed
+        const processedSources = [];
+        for (const source of sources) {
+            let content = source.content;
+            
+            // If source has a file path, try to extract content
+            if (source.file && !content) {
+                try {
+                    content = await extractTextFromFile(source.file);
+                    console.log(`Extracted ${content.length} characters from ${source.name}`);
+                } catch (error) {
+                    console.error(`Failed to extract content from ${source.name}:`, error);
+                    content = `Unable to process file: ${source.name}. Please ensure the file is accessible and in a supported format.`;
+                }
+            }
+            
+            processedSources.push({
+                name: source.name,
+                content: content || 'No content available'
+            });
+        }
+        
+        const combinedContent = processedSources.map(source => 
+            `Source: ${source.name}\n${source.content}`
+        ).join('\n\n---\n\n');
+        
+        console.log('Combined content length:', combinedContent.length);
+        
+        // If content is too large, process with chunking strategy
+        if (combinedContent.length > 800000) {
+            console.log('Content too large, using chunking strategy');
+            
+            // Create summary of each source first
+            const sourceSummaries = [];
+            for (const source of processedSources) {
+                if (source.content.length > 100000) {
+                    // Summarize large sources
+                    const summaryPrompt = `Summarize the key points from this document:\n\n${source.content.substring(0, 50000)}`;
+                    const summaryResult = await model.generateContent(summaryPrompt);
+                    sourceSummaries.push(`Source: ${source.name}\nSummary: ${summaryResult.response.text()}`);
+                } else {
+                    sourceSummaries.push(`Source: ${source.name}\n${source.content}`);
+                }
+            }
+            
+            const summarizedContent = sourceSummaries.join('\n\n---\n\n');
+            const prompt = `Based on the following documents and summaries, answer this question: "${query}"\n\nDocuments:\n${summarizedContent}\n\nProvide a comprehensive answer with specific citations to the source documents. Format your response with:
+- Clear headings using ## for main sections
+- Bullet points using - for lists
+- Numbered lists using 1. 2. 3. for steps
+- **Bold text** for important points
+- Proper line spacing with double line breaks between sections
+- Clear references to source documents
+- Well-structured paragraphs with good spacing`;
+            
+            const result = await model.generateContent(prompt);
+            const response = result.response.text();
+            
+            await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+            return res.json({ response, sources: processedSources.map(s => ({ name: s.name, id: s.id })) });
+        }
+        
+        const prompt = `Based on the following documents, answer this question: "${query}"\n\nDocuments:\n${combinedContent}\n\nProvide a comprehensive answer with specific citations to the source documents. Format your response with:
+- Clear headings using ## for main sections
+- Bullet points using - for lists
+- Numbered lists using 1. 2. 3. for steps
+- **Bold text** for important points
+- Proper line spacing with double line breaks between sections
+- Clear references to source documents
+- Well-structured paragraphs with good spacing`;
+        
+        console.log('Sending request to Gemini...');
+        const result = await model.generateContent(prompt);
+        const response = result.response.text();
+        
+        console.log('Gemini response received, length:', response.length);
+        
+        await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+        
+        res.json({ response, sources: processedSources.map(s => ({ name: s.name, id: s.id })) });
+    } catch (error) {
+        console.error('Error in analyzeDocuments:', error);
+        res.status(500).json({ message: 'Failed to analyze documents: ' + error.message });
+    }
+});
+
+const generateStudyMaterial = asyncHandler(async (req, res) => {
+    console.log('generateStudyMaterial called with:', { type: req.body.type, sourcesCount: req.body.sources?.length });
+    
+    const { sources, type } = req.body;
+    
+    if (!sources || sources.length === 0) {
+        console.log('No sources provided');
+        return res.status(400).json({ message: 'No sources provided' });
+    }
+    
+    if (!process.env.GEMINI_API_KEY) {
+        console.log('GEMINI_API_KEY not found');
+        return res.status(500).json({ message: 'AI service not configured' });
+    }
+    
+    try {
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    
+    // Process sources and extract content from files if needed
+    const processedSources = [];
+    for (const source of sources) {
+        let content = source.content;
+        
+        // If source has a file path, try to extract content
+        if (source.file && !content) {
+            try {
+                content = await extractTextFromFile(source.file);
+                console.log(`Extracted ${content.length} characters from ${source.name}`);
+            } catch (error) {
+                console.error(`Failed to extract content from ${source.name}:`, error);
+                content = `Unable to process file: ${source.name}. Please ensure the file is accessible and in a supported format.`;
+            }
+        }
+        
+        processedSources.push({
+            name: source.name,
+            content: content || 'No content available'
+        });
+    }
+    
+    const maxTokensPerSource = Math.floor(800000 / processedSources.length);
+    const truncatedSources = processedSources.map(source => ({
+        ...source,
+        content: source.content.length > maxTokensPerSource 
+            ? source.content.substring(0, maxTokensPerSource) + '\n\n[Content truncated...]'
+            : source.content
+    }));
+    
+    const combinedContent = truncatedSources.map(source => 
+        `Source: ${source.name}\n${source.content}`
+    ).join('\n\n---\n\n');
+    
+    let prompt = '';
+    
+    switch (type) {
+        case 'summary':
+            prompt = `Create a comprehensive summary of the following documents:\n\n${combinedContent}\n\nProvide a well-structured summary that captures the key points from all sources.`;
+            break;
+        case 'outline':
+            prompt = `Create a detailed outline based on the following documents:\n\n${combinedContent}\n\nOrganize the content into a hierarchical outline with main topics and subtopics.`;
+            break;
+        case 'timeline':
+            prompt = `Create a timeline based on the following documents:\n\n${combinedContent}\n\nExtract chronological events and organize them in a timeline format.`;
+            break;
+        case 'flashcards':
+            prompt = `Create flashcards based on the following documents:\n\n${combinedContent}\n\nGenerate question-answer pairs in JSON format: {"flashcards": [{"question": "...", "answer": "..."}]}`;
+            break;
+        case 'quiz':
+            prompt = `Create a quiz based on the following documents:\n\n${combinedContent}\n\nGenerate multiple choice questions in JSON format: {"questions": [{"question": "...", "options": ["A", "B", "C", "D"], "correct": 0}]}`;
+            break;
+        case 'mindmap':
+            prompt = `Create a detailed mind map structure based on the following documents:\n\n${combinedContent}\n\nFormat as a hierarchical text structure with:
+- Main topic at center
+- Primary branches with ##
+- Secondary branches with ###
+- Key points with bullet points
+- Use indentation to show relationships
+- Include all major concepts and connections`;
+            break;
+        case 'video':
+            prompt = `Create an educational video script based on the following documents:\n\n${combinedContent}\n\nFormat as a complete video script with:
+- [INTRO] section with hook and overview
+- [MAIN CONTENT] sections with clear explanations
+- [VISUAL CUES] suggestions for graphics/animations
+- [TRANSITIONS] between topics
+- [CONCLUSION] with key takeaways
+- Estimated timing for each section
+- Engaging and educational tone`;
+            break;
+        default:
+            return res.status(400).json({ message: 'Invalid study material type' });
+    }
+    
+        console.log('Sending request to Gemini for type:', type);
+        const result = await model.generateContent(prompt);
+        let content = result.response.text();
+        
+        console.log('Gemini response received, length:', content.length);
+        
+        // Try to parse JSON for flashcards and quiz
+        if (type === 'flashcards' || type === 'quiz') {
+            try {
+                const jsonMatch = content.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    content = JSON.parse(jsonMatch[0]);
+                }
+            } catch (e) {
+                console.log('JSON parsing failed, keeping as text');
+            }
+        }
+        
+        await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+        
+        res.json({ content, type });
+    } catch (error) {
+        console.error('Error in generateStudyMaterial:', error);
+        res.status(500).json({ message: 'Failed to generate study material: ' + error.message });
+    }
+});
+
+const generateAudioOverview = asyncHandler(async (req, res) => {
+    const { sources, format } = req.body;
+    
+    if (!sources || sources.length === 0) {
+        return res.status(400).json({ message: 'No sources provided' });
+    }
+    
+    try {
+        const result = await generateAudioScript(sources, format);
+        await User.findByIdAndUpdate(req.user._id, { $inc: { 'usage.requests': 1 } });
+        res.json(result);
+    } catch (error) {
+        console.error('Error generating audio overview:', error);
+        res.status(500).json({ message: 'Failed to generate audio overview: ' + error.message });
+    }
+});
+
 export { 
     createSummary, 
     createFlashcards, 
@@ -683,5 +980,8 @@ export {
     createStudyPlan,
     compareConcepts,
     generateExamPaper,
-    createSubjectQuiz
+    createSubjectQuiz,
+    analyzeDocuments,
+    generateStudyMaterial,
+    generateAudioOverview
 };

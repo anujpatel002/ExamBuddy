@@ -1,0 +1,42 @@
+/* Mobile Light Theme Emergency Fix */
+@media (max-width: 768px) {
+  /* Force dark text on light backgrounds for mobile */
+  html:not(.dark) {
+    /* Override all text to be dark */
+    * {
+      color: #000000 !important;
+    }
+    
+    /* Specific overrides for visibility */
+    .text-gray-900,
+    .text-gray-800,
+    .text-gray-700,
+    .text-gray-600,
+    .text-gray-500,
+    .text-gray-400,
+    .text-gray-300 {
+      color: #000000 !important;
+    }
+    
+    /* Keep backgrounds light */
+    .bg-white { background-color: #ffffff !important; }
+    .bg-gray-50 { background-color: #f8fafc !important; }
+    .bg-gray-100 { background-color: #f1f5f9 !important; }
+    
+    /* Input visibility */
+    input, textarea, select {
+      background-color: #ffffff !important;
+      color: #000000 !important;
+      border-color: #d1d5db !important;
+    }
+    
+    input::placeholder {
+      color: #666666 !important;
+    }
+    
+    /* Button text visibility */
+    button:not(.bg-blue-600):not(.bg-green-600):not(.bg-red-600) {
+      color: #000000 !important;
+    }
+  }
+}

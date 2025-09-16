@@ -1,0 +1,30 @@
+/* Mobile Emergency Fix - Force All Text Visible */
+@media (max-width: 768px) {
+  /* Override everything for mobile */
+  * {
+    color: #000000 !important;
+  }
+  
+  .dark * {
+    color: #ffffff !important;
+  }
+  
+  /* Backgrounds */
+  .bg-gray-50 {
+    background-color: #ffffff !important;
+  }
+  
+  .bg-white {
+    background-color: #ffffff !important;
+  }
+  
+  .dark .bg-gray-50,
+  .dark .bg-gray-900 {
+    background-color: #000000 !important;
+  }
+  
+  .dark .bg-white,
+  .dark .bg-gray-800 {
+    background-color: #1f2937 !important;
+  }
+}

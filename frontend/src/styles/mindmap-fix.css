@@ -1,0 +1,64 @@
+/* MindMap Light Theme Text Visibility Fixes */
+
+/* Force all MindMap text to be visible in light theme */
+.mindmap-node h3 {
+  color: #1f2937 !important;
+}
+
+.dark .mindmap-node h3 {
+  color: #f9fafb !important;
+}
+
+/* Description text */
+.mindmap-node .text-gray-600 {
+  color: #4b5563 !important;
+}
+
+.dark .mindmap-node .text-gray-600 {
+  color: #d1d5db !important;
+}
+
+/* Overview content text */
+.mindmap-node .text-gray-700 {
+  color: #374151 !important;
+}
+
+.dark .mindmap-node .text-gray-700 {
+  color: #e5e7eb !important;
+}
+
+/* Key points and examples text */
+.mindmap-node .text-gray-700.dark\\:text-gray-300 {
+  color: #374151 !important;
+}
+
+.dark .mindmap-node .text-gray-700.dark\\:text-gray-300 {
+  color: #d1d5db !important;
+}
+
+/* Formula text */
+.mindmap-node .text-gray-800 {
+  color: #1f2937 !important;
+}
+
+.dark .mindmap-node .text-gray-800 {
+  color: #f3f4f6 !important;
+}
+
+/* All span elements in mindmap */
+.mindmap-node span {
+  color: inherit !important;
+}
+
+/* Force visibility for all text elements */
+.mindmap-node * {
+  color: inherit;
+}
+
+.mindmap-node {
+  color: #1f2937;
+}
+
+.dark .mindmap-node {
+  color: #f9fafb;
+}

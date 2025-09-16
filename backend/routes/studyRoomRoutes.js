@@ -20,7 +20,7 @@ router.post('/', protect, checkPlanLimit('createStudyRoom'), (req, res) => {
     roomCode
   };
   
-  console.log(`Room ${roomCode} created by ${hostName}`);
+  // Room created successfully
   res.json(rooms[roomCode]);
 });
 
@@ -49,7 +49,7 @@ router.put('/:roomCode/join', protect, (req, res) => {
   const existingMember = room.members.find(m => m._id === userId);
   if (!existingMember) {
     room.members.push({ _id: userId, name: userName, score: 0 });
-    console.log(`${userName} joined room ${roomCode}`);
+    // User joined room successfully
   }
   
   res.json(room);
@@ -68,7 +68,7 @@ router.put('/:roomCode/start', protect, (req, res) => {
   room.status = 'in-progress';
   room.totalTime = timePerQuestion * 60;
   
-  console.log(`Quiz started in room ${roomCode}`);
+  // Quiz started successfully
   res.json(room);
 });
 
@@ -95,7 +95,7 @@ router.put('/:roomCode/submit', protect, (req, res) => {
     room.status = 'finished';
   }
   
-  console.log(`User ${userId} submitted score ${score} in room ${roomCode}`);
+  // Score submitted successfully
   res.json(room);
 });
 
@@ -105,7 +105,7 @@ router.delete('/:roomCode', protect, (req, res) => {
   
   if (rooms[roomCode]) {
     delete rooms[roomCode];
-    console.log(`Room ${roomCode} deleted by host`);
+    // Room deleted by host
   }
   
   res.json({ message: 'Room deleted successfully' });
@@ -125,7 +125,7 @@ router.put('/:roomCode/leave', protect, (req, res) => {
   
   if (room.members.length === 0) {
     delete rooms[roomCode];
-    console.log(`Room ${roomCode} deleted - no members left`);
+    // Room deleted - no members left
   }
   
   res.json({ message: 'Left room successfully' });

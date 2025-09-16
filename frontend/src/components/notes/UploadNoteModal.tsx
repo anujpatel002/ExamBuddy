@@ -18,47 +18,95 @@ interface UploadNoteModalProps {
 export default function UploadNoteModal(props: UploadNoteModalProps) {
   const { isOpen, onClose, onNoteUploaded, subjectId, currentNoteCount = 0 } = props;
   const [title, setTitle] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [showPdfConverter, setShowPdfConverter] = useState(false);
   const [useFileName, setUseFileName] = useState(true);
   const { limits } = usePlanLimits();
   
   const canUpload = limits.notesPerSubject === -1 || currentNoteCount < limits.notesPerSubject;
+  const canUploadMultiple = (fileCount: number) => {
+    return limits.notesPerSubject === -1 || (currentNoteCount + fileCount) <= limits.notesPerSubject;
+  };
 
-  const handleFileChange = (selectedFile: File | null) => {
-    setFile(selectedFile);
-    setShowPdfConverter(false);
-    if (selectedFile && useFileName) {
-      const fileName = selectedFile.name.replace(/\.[^/.]+$/, "");
-      setTitle(fileName);
+  const handleFileChange = (selectedFiles: FileList | null) => {
+    if (selectedFiles) {
+      const fileArray = Array.from(selectedFiles);
+      setFiles(fileArray);
+      setShowPdfConverter(false);
+      if (fileArray.length === 1 && useFileName) {
+        const fileName = fileArray[0].name.replace(/\.[^/.]+$/, "");
+        setTitle(fileName);
+      } else if (fileArray.length > 1) {
+        setTitle(''); // Clear title for multiple files
+      }
+    } else {
+      setFiles([]);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canUpload) {
+    if (files.length === 1 && !canUpload) {
       toast.error(`Note limit reached for this subject. Upgrade your plan to add more than ${limits.notesPerSubject} notes per subject.`);
       return;
     }
-    if (!file || !title.trim()) {
-      toast.error('Please provide both title and file');
+    
+    if (files.length > 1 && !canUploadMultiple(files.length)) {
+      const remaining = limits.notesPerSubject - currentNoteCount;
+      toast.error(`Cannot upload ${files.length} files. You can only add ${remaining} more notes to this subject with your current plan.`);
+      return;
+    }
+    if (files.length === 0) {
+      toast.error('Please select at least one file');
+      return;
+    }
+    
+    if (files.length === 1 && !title.trim()) {
+      toast.error('Please provide a title for the note');
       return;
     }
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append('title', title);
-    formData.append('document', file);
-    formData.append('subjectId', subjectId);
-
+    
     try {
-      await api.post('/notes/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      toast.success('Note uploaded successfully!');
+      if (files.length === 1) {
+        // Single file upload
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('document', files[0]);
+        formData.append('subjectId', subjectId);
+
+        await api.post('/notes/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        toast.success('Note uploaded successfully!');
+      } else {
+        // Multiple files upload
+        setUploadProgress({ current: 0, total: files.length });
+        
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          const formData = new FormData();
+          const fileName = file.name.replace(/\.[^/.]+$/, "");
+          formData.append('title', fileName);
+          formData.append('document', file);
+          formData.append('subjectId', subjectId);
+
+          await api.post('/notes/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          
+          setUploadProgress({ current: i + 1, total: files.length });
+        }
+        
+        toast.success(`${files.length} notes uploaded successfully!`);
+      }
+      
       setTitle('');
-      setFile(null);
+      setFiles([]);
+      setUploadProgress({ current: 0, total: 0 });
       onNoteUploaded();
       onClose();
     } catch (error: any) {
@@ -69,6 +117,7 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
       }
     } finally {
       setIsUploading(false);
+      setUploadProgress({ current: 0, total: 0 });
     }
   };
 
@@ -78,6 +127,13 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
           <p className="text-yellow-800 dark:text-yellow-200 text-sm">
             Note limit reached ({currentNoteCount}/{limits.notesPerSubject}). Upgrade your plan to add more notes.
+          </p>
+        </div>
+      )}
+      {files.length > 1 && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+          <p className="text-blue-800 dark:text-blue-200 text-sm">
+            <strong>Multiple Files Selected:</strong> Each file will be created as a separate note using the file name as the title.
           </p>
         </div>
       )}
@@ -91,17 +147,18 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
               checked={useFileName}
               onChange={(e) => {
                 setUseFileName(e.target.checked);
-                if (e.target.checked && file) {
-                  const fileName = file.name.replace(/\.[^/.]+$/, "");
+                if (e.target.checked && files.length === 1) {
+                  const fileName = files[0].name.replace(/\.[^/.]+$/, "");
                   setTitle(fileName);
                 } else {
                   setTitle('');
                 }
               }}
               className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              disabled={files.length > 1}
             />
-            <label htmlFor="useFileName" className="text-sm text-gray-600 dark:text-gray-400">
-              Use file name as title
+            <label htmlFor="useFileName" className={`text-sm ${files.length > 1 ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-400'}`}>
+              Use file name as title {files.length > 1 ? '(disabled for multiple files)' : ''}
             </label>
           </div>
           <input
@@ -109,8 +166,9 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
-            placeholder="Enter note title"
-            required
+            placeholder={files.length > 1 ? 'File names will be used as titles' : 'Enter note title'}
+            required={files.length === 1}
+            disabled={files.length > 1}
           />
         </div>
         
@@ -120,20 +178,30 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
             <p className="text-sm text-red-600 dark:text-red-400 font-medium">
               Only PDF and Word documents are supported. If you have PowerPoint files, please convert them to PDF first.
             </p>
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-              <p className="text-amber-800 dark:text-amber-200 text-sm mb-2">
-                <strong>📄 Non-English PDF with Images?</strong> Convert to HTML first for better text extraction.
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => window.open('https://pdf-to-text-ten.vercel.app/', '_blank')}
-                className="text-xs"
-              >
-                <FiExternalLink className="mr-1 w-3 h-3" />
-                Convert PDF to HTML
-              </Button>
+            <div className="space-y-2">
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                <p className="text-amber-800 dark:text-amber-200 text-sm mb-2">
+                  <strong>📄 Non-English PDF with Images?</strong> Convert to HTML first for better text extraction.
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => window.open('https://pdf-to-text-ten.vercel.app/', '_blank')}
+                  className="text-xs"
+                >
+                  <FiExternalLink className="mr-1 w-3 h-3" />
+                  Convert PDF to HTML
+                </Button>
+              </div>
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                <p className="text-blue-800 dark:text-blue-200 text-sm mb-2">
+                  <strong>📊 Have PowerPoint (PPT) files?</strong> For best results with diagrams and images, convert to PDF first, then use the converter above.
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-300">
+                  PPT → PDF → HTML converter → Upload HTML file
+                </p>
+              </div>
             </div>
           </div>
           {showPdfConverter && (
@@ -160,17 +228,39 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
           )}
           <input
             type="file"
-            onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+            onChange={(e) => handleFileChange(e.target.files)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-md"
             accept=".pdf,.doc,.docx,.txt,.html"
+            multiple
             required
           />
+          {files.length > 0 && (
+            <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              {files.length === 1 ? (
+                <p>Selected: {files[0].name}</p>
+              ) : (
+                <div>
+                  <p className="font-medium">{files.length} files selected:</p>
+                  <ul className="list-disc list-inside mt-1 max-h-20 overflow-y-auto">
+                    {files.map((file, index) => (
+                      <li key={index} className="truncate">{file.name}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 pt-4">
-          <Button type="submit" isLoading={isUploading} className="flex-1" disabled={!canUpload}>
+          <Button type="submit" isLoading={isUploading} className="flex-1" disabled={files.length === 1 ? !canUpload : !canUploadMultiple(files.length)}>
             <FiUpload className="mr-2" />
-            Upload Note
+            {isUploading && uploadProgress.total > 1 
+              ? `Uploading ${uploadProgress.current}/${uploadProgress.total}...` 
+              : files.length > 1 
+                ? `Upload ${files.length} Notes` 
+                : 'Upload Note'
+            }
           </Button>
           <Button type="button" variant="secondary" onClick={onClose}>
             <FiX className="mr-2" />

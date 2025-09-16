@@ -25,23 +25,23 @@ export default function Leaderboard() {
   }, []);
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-      <h2 className="text-xl font-semibold mb-4 flex items-center">
+    <div className="glass-card p-6 rounded-2xl">
+      <h2 className="text-xl font-semibold mb-4 flex items-center theme-text-primary">
         🏆 Weekly Leaderboard
       </h2>
       <div className="space-y-3">
         {leaderboard.map((entry) => (
-          <div key={entry.rank} className={`flex items-center justify-between p-3 rounded-lg ${
-            entry.rank === 1 ? 'bg-yellow-100 dark:bg-yellow-900/20' :
-            entry.rank === 2 ? 'bg-gray-100 dark:bg-gray-700' :
-            entry.rank === 3 ? 'bg-orange-100 dark:bg-orange-900/20' :
-            'bg-gray-50 dark:bg-gray-700/50'
+          <div key={entry.rank} className={`flex items-center justify-between p-3 rounded-xl transition-all duration-300 hover:scale-105 ${
+            entry.rank === 1 ? 'bg-yellow-100/80 dark:bg-yellow-900/20 border border-yellow-200/50 dark:border-yellow-700/30' :
+            entry.rank === 2 ? 'bg-gray-100/80 dark:bg-gray-700/50 border border-gray-200/50 dark:border-gray-600/30' :
+            entry.rank === 3 ? 'bg-orange-100/80 dark:bg-orange-900/20 border border-orange-200/50 dark:border-orange-700/30' :
+            'bg-white/50 dark:bg-gray-700/30 border border-gray-200/30 dark:border-gray-600/20'
           }`}>
             <div className="flex items-center gap-3">
               <span className="text-lg font-bold">
                 {entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : `#${entry.rank}`}
               </span>
-              <span className="font-medium">{entry.name}</span>
+              <span className="font-medium theme-text-primary">{entry.name}</span>
             </div>
             <span className="font-bold text-indigo-600 dark:text-indigo-400">
               {entry.points} pts

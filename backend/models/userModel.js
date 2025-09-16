@@ -15,6 +15,8 @@ const userSchema = mongoose.Schema(
     isVerified: { type: Boolean, default: false },
     emailVerificationToken: String,
     lastVerificationEmailSent: Date,
+    passwordResetToken: String,
+    passwordResetExpires: Date,
     subscription: {
       plan: { type: String, default: 'free', enum: ['free', 'pro', 'premium', 'ultra'] },
       razorpayCustomerId: String,
@@ -101,6 +103,17 @@ userSchema.methods.createEmailVerificationToken = function() {
     .update(verificationToken)
     .digest('hex');
   return verificationToken;
+};
+
+// Method to create password reset token
+userSchema.methods.createPasswordResetToken = function() {
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  this.passwordResetToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+  return resetToken;
 };
 
 // Method to check if subscription is active
