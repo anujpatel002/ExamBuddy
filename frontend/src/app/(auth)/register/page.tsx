@@ -8,14 +8,30 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import ThemeToggleButton from '@/components/ui/ThemeToggleButton';
 import { useAuth } from '@/hooks/useAuth';
-import { FiCheckCircle, FiUser, FiMail, FiLock, FiStar } from 'react-icons/fi';
+import { FiCheckCircle, FiUser, FiMail, FiLock, FiStar, FiEye, FiEyeOff } from 'react-icons/fi';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  
+  const getPasswordStrength = (pass: string) => {
+    let score = 0;
+    if (pass.length >= 8) score++;
+    if (/[A-Z]/.test(pass)) score++;
+    if (/[0-9]/.test(pass)) score++;
+    if (/[^A-Za-z0-9]/.test(pass)) score++;
+    return score;
+  };
+  
+  const passwordStrength = getPasswordStrength(password);
+  const strengthColors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500'];
+  const strengthLabels = ['Weak', 'Fair', 'Good', 'Strong'];
   const { user } = useAuth();
   const router = useRouter();
   
@@ -27,6 +43,10 @@ export default function RegisterPage() {
 
  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
     setIsLoading(true);
     try {
       // The register endpoint only returns a message, not user data
@@ -96,7 +116,7 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
             <div className="relative group">
-              <FiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300" />
+              <FiUser className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white group-focus-within:text-blue-400 transition-colors duration-300" />
               <Input 
                 type="text" 
                 placeholder="Full Name" 
@@ -107,7 +127,7 @@ export default function RegisterPage() {
               />
             </div>
             <div className="relative group">
-              <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300" />
+              <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white group-focus-within:text-blue-400 transition-colors duration-300" />
               <Input 
                 type="email" 
                 placeholder="Your Email" 
@@ -118,16 +138,60 @@ export default function RegisterPage() {
               />
             </div>
             <div className="relative group">
-              <FiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300" />
+              <FiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white group-focus-within:text-blue-400 transition-colors duration-300" />
               <Input 
-                type="password" 
+                type={showPassword ? "text" : "password"} 
                 placeholder="Create a Password" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
                 required 
-                className="pl-10 glass-input hover:border-blue-300 dark:hover:border-blue-600 focus:border-blue-500 dark:focus:border-blue-400"
+                className="pl-10 pr-10 glass-input hover:border-blue-300 dark:hover:border-blue-600 focus:border-blue-500 dark:focus:border-blue-400"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white hover:text-blue-400 transition-colors duration-300"
+              >
+                {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+              </button>
             </div>
+            {password && (
+              <div className="space-y-2">
+                <div className="flex gap-1">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className={`h-1 flex-1 rounded ${i < passwordStrength ? strengthColors[passwordStrength - 1] : 'bg-gray-600'}`}></div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-300">
+                  Password strength: <span className={`font-medium ${passwordStrength > 2 ? 'text-green-400' : passwordStrength > 1 ? 'text-yellow-400' : 'text-red-400'}`}>
+                    {strengthLabels[passwordStrength - 1] || 'Very Weak'}
+                  </span>
+                </p>
+              </div>
+            )}
+            <div className="relative group">
+              <FiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white group-focus-within:text-blue-400 transition-colors duration-300" />
+              <Input 
+                type={showConfirmPassword ? "text" : "password"} 
+                placeholder="Confirm Password" 
+                value={confirmPassword} 
+                onChange={(e) => setConfirmPassword(e.target.value)} 
+                required 
+                className="pl-10 pr-10 glass-input hover:border-blue-300 dark:hover:border-blue-600 focus:border-blue-500 dark:focus:border-blue-400"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white hover:text-blue-400 transition-colors duration-300"
+              >
+                {showConfirmPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+              </button>
+            </div>
+            {confirmPassword && (
+              <p className={`text-xs font-medium ${password === confirmPassword ? 'text-green-400' : 'text-red-400'}`} style={{color: password === confirmPassword ? '#4ade80' : '#f87171'}}>
+                {password === confirmPassword ? '✓ Passwords match' : '✗ Passwords do not match'}
+              </p>
+            )}
           </div>
           
           <Button 

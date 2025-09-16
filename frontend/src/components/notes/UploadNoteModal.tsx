@@ -122,24 +122,58 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Upload Note">
+    <Modal isOpen={isOpen} onClose={onClose} title="🤖 AI Note Processor">
+      <div className="glass-card p-6 rounded-2xl mb-6 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <span className="text-white text-lg">🧠</span>
+          </div>
+          <div>
+            <h3 className="font-bold text-white">AI-Powered Document Analysis</h3>
+            <p className="text-xs text-blue-300">Upload your documents for intelligent processing</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <div className="glass-card p-3 rounded-xl">
+            <div className="text-lg mb-1">📄</div>
+            <div className="text-xs text-gray-300">Extract Text</div>
+          </div>
+          <div className="glass-card p-3 rounded-xl">
+            <div className="text-lg mb-1">🎯</div>
+            <div className="text-xs text-gray-300">Generate Q&A</div>
+          </div>
+          <div className="glass-card p-3 rounded-xl">
+            <div className="text-lg mb-1">💡</div>
+            <div className="text-xs text-gray-300">Create Summary</div>
+          </div>
+        </div>
+      </div>
+      
       {!canUpload && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
-          <p className="text-yellow-800 dark:text-yellow-200 text-sm">
-            Note limit reached ({currentNoteCount}/{limits.notesPerSubject}). Upgrade your plan to add more notes.
-          </p>
+        <div className="glass-card p-4 mb-4 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
+          <div className="flex items-center gap-2">
+            <span className="text-yellow-400">⚠️</span>
+            <p className="text-yellow-200 text-sm">
+              Note limit reached ({currentNoteCount}/{limits.notesPerSubject}). Upgrade your plan to add more notes.
+            </p>
+          </div>
         </div>
       )}
       {files.length > 1 && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-          <p className="text-blue-800 dark:text-blue-200 text-sm">
-            <strong>Multiple Files Selected:</strong> Each file will be created as a separate note using the file name as the title.
-          </p>
+        <div className="glass-card p-4 mb-4 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-500/30">
+          <div className="flex items-center gap-2">
+            <span className="text-blue-400">📁</span>
+            <p className="text-blue-200 text-sm">
+              <strong>Batch Processing:</strong> Each file will be processed separately using AI analysis.
+            </p>
+          </div>
         </div>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-2">Note Title</label>
+          <label className="block text-sm font-medium mb-2 text-white flex items-center gap-2">
+            <span className="text-blue-400">✏️</span> Note Title
+          </label>
           <div className="flex items-center gap-2 mb-2">
             <input
               type="checkbox"
@@ -173,57 +207,71 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
         </div>
         
         <div>
-          <label className="block text-sm font-medium mb-2">File</label>
+          <label className="block text-sm font-medium mb-2 text-white flex items-center gap-2">
+            <span className="text-purple-400">📎</span> Upload Documents
+          </label>
           <div className="space-y-2 mb-3">
             <p className="text-sm text-red-600 dark:text-red-400 font-medium">
               Only PDF and Word documents are supported. If you have PowerPoint files, please convert them to PDF first.
             </p>
-            <div className="space-y-2">
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                <p className="text-amber-800 dark:text-amber-200 text-sm mb-2">
-                  <strong>📄 Non-English PDF with Images?</strong> Convert to HTML first for better text extraction.
-                </p>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => window.open('https://pdf-to-text-ten.vercel.app/', '_blank')}
-                  className="text-xs"
-                >
-                  <FiExternalLink className="mr-1 w-3 h-3" />
-                  Convert PDF to HTML
-                </Button>
+            <div className="space-y-3">
+              <div className="glass-card p-4 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">🔄</span>
+                  <div>
+                    <p className="text-amber-200 text-sm mb-2 font-medium">
+                      📄 Image-based PDF? Our AI converter extracts text perfectly!
+                    </p>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => window.open('https://pdf-to-text-ten.vercel.app/', '_blank')}
+                      className="text-xs bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/50"
+                    >
+                      <FiExternalLink className="mr-1 w-3 h-3" />
+                      🚀 AI PDF Converter
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                <p className="text-blue-800 dark:text-blue-200 text-sm mb-2">
-                  <strong>📊 Have PowerPoint (PPT) files?</strong> For best results with diagrams and images, convert to PDF first, then use the converter above.
-                </p>
-                <p className="text-xs text-blue-600 dark:text-blue-300">
-                  PPT → PDF → HTML converter → Upload HTML file
-                </p>
+              <div className="glass-card p-4 rounded-xl bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border border-blue-500/30">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">📊</span>
+                  <div>
+                    <p className="text-blue-200 text-sm mb-2 font-medium">
+                      PowerPoint files? Convert for optimal AI processing!
+                    </p>
+                    <p className="text-xs text-blue-300 bg-blue-500/20 px-2 py-1 rounded">
+                      PPT → PDF → AI Converter → Upload HTML
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
           {showPdfConverter && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-3">
-              <p className="text-blue-800 dark:text-blue-200 text-sm mb-3">
-                This PDF contains images and cannot be processed directly.
-              </p>
-              <p className="text-green-600 dark:text-green-400 text-sm mb-3">
-                <strong>Solution:</strong> Convert to HTML using the converter below, then upload the HTML file here.
-              </p>
-              <p className="text-blue-800 dark:text-blue-200 text-sm mb-3">
-                Use PDF converter (downloads as HTML):
-              </p>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => window.open('https://pdf-to-text-ten.vercel.app/', '_blank')}
-                className="text-sm"
-              >
-                <FiExternalLink className="mr-2" />
-                Convert PDF to Text
-              </Button>
+            <div className="glass-card p-4 mb-3 bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-500/30 animate-pulse">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">🤖</span>
+                <div>
+                  <p className="text-green-200 text-sm mb-2 font-medium">
+                    🔍 AI detected image-based PDF!
+                  </p>
+                  <p className="text-blue-200 text-sm mb-3">
+                    <strong>✨ Smart Solution:</strong> Use our AI converter for perfect text extraction.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => window.open('https://pdf-to-text-ten.vercel.app/', '_blank')}
+                    className="text-sm bg-gradient-to-r from-green-500/30 to-blue-500/30 hover:from-green-500/40 hover:to-blue-500/40 border-green-500/50"
+                  >
+                    <FiExternalLink className="mr-2" />
+                    🚀 Launch AI Converter
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
           <input
@@ -253,13 +301,13 @@ export default function UploadNoteModal(props: UploadNoteModalProps) {
         </div>
 
         <div className="flex gap-2 pt-4">
-          <Button type="submit" isLoading={isUploading} className="flex-1" disabled={files.length === 1 ? !canUpload : !canUploadMultiple(files.length)}>
+          <Button type="submit" isLoading={isUploading} className="flex-1 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700" disabled={files.length === 1 ? !canUpload : !canUploadMultiple(files.length)}>
             <FiUpload className="mr-2" />
             {isUploading && uploadProgress.total > 1 
-              ? `Uploading ${uploadProgress.current}/${uploadProgress.total}...` 
+              ? `🤖 Processing ${uploadProgress.current}/${uploadProgress.total}...` 
               : files.length > 1 
-                ? `Upload ${files.length} Notes` 
-                : 'Upload Note'
+                ? `🚀 Process ${files.length} Documents` 
+                : '🧠 Start AI Processing'
             }
           </Button>
           <Button type="button" variant="secondary" onClick={onClose}>

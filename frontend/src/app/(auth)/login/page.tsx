@@ -8,11 +8,12 @@ import toast from 'react-hot-toast';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import ThemeToggleButton from '@/components/ui/ThemeToggleButton';
-import { FiMail, FiLock, FiStar } from 'react-icons/fi';
+import { FiMail, FiLock, FiStar, FiEye, FiEyeOff } from 'react-icons/fi';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { login, user } = useAuth();
   const router = useRouter();
@@ -64,7 +65,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
             <div className="relative group">
-              <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 theme-text-muted group-focus-within:text-blue-500 transition-colors duration-300" />
+              <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white group-focus-within:text-blue-400 transition-colors duration-300" />
               <Input 
                 type="email" 
                 placeholder="Your Email" 
@@ -75,15 +76,22 @@ const handleSubmit = async (e: React.FormEvent) => {
               />
             </div>
             <div className="relative group">
-              <FiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 theme-text-muted group-focus-within:text-blue-500 transition-colors duration-300" />
+              <FiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white group-focus-within:text-blue-400 transition-colors duration-300" />
               <Input 
-                type="password" 
+                type={showPassword ? "text" : "password"} 
                 placeholder="Password" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
                 required 
-                className="pl-10 glass-input hover:border-blue-300 dark:hover:border-blue-600 focus:border-blue-500 dark:focus:border-blue-400"
+                className="pl-10 pr-10 glass-input hover:border-blue-300 dark:hover:border-blue-600 focus:border-blue-500 dark:focus:border-blue-400"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white hover:text-blue-400 transition-colors duration-300"
+              >
+                {showPassword ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
           <Button type="submit" className="w-full modern-button bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white py-3 rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105" isLoading={isLoading}>
