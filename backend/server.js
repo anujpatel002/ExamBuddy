@@ -97,7 +97,8 @@ const csrfProtection = (req, res, next) => {
   const allowedOrigins = [
     'http://localhost:3000',
     'http://192.168.1.18:3000', 
-    'https://exambuddy-delta.vercel.app'
+    'https://exambuddy-delta.vercel.app',
+    'https://exambuddy.me'
   ];
   
   if (origin && !allowedOrigins.some(allowed => origin.startsWith(allowed))) {
