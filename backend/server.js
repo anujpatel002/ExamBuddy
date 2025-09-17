@@ -54,22 +54,11 @@ app.use(securityHeaders);
 const allowedOrigins = [
   'http://localhost:3000',
   'http://192.168.1.18:3000',
-  'https://exambuddy-delta.vercel.app'
+  'https://exambuddy-delta.vercel.app',
+  'https://exambuddy.me'
 ];
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
-    // Allow any origin that starts with the server IP
-    if (origin.startsWith('http://192.168.1.18') || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: allowedOrigins, // <-- Let the CORS package handle the logic
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   allowedHeaders: 'Content-Type, Authorization',
   credentials: true
