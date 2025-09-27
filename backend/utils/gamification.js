@@ -5,7 +5,8 @@ const POINTS = {
   COMPLETE_QUIZ: 15,
   REVIEW_FLASHCARD: 2,
   GENERATE_SUMMARY: 5,
-  DAILY_LOGIN: 5
+  DAILY_LOGIN: 5,
+  WATCH_AD: 3 // Points for watching ads to encourage engagement
 };
 
 export const updateStreak = async (userId) => {

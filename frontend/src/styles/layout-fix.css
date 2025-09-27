@@ -19,11 +19,39 @@ body {
     position: fixed !important;
     left: 0 !important;
     top: 0 !important;
-    width: 16rem !important;
     height: 100vh !important;
     z-index: 30 !important;
     transform: translateX(0) !important;
     flex-shrink: 0;
+    overflow: visible !important; /* Ensure tooltips are not clipped */
+  }
+  
+  /* Sidebar tooltip improvements */
+  .sidebar .group:hover .absolute {
+    z-index: 60 !important;
+  }
+  
+  /* Ensure sidebar icons are visible when collapsed */
+  .sidebar.w-16 .sidebar-item {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .sidebar.w-16 .sidebar-item svg {
+    min-width: 20px;
+    min-height: 20px;
+  }
+  
+  /* Default sidebar width (expanded) */
+  .sidebar {
+    width: 16rem !important;
+  }
+  
+  /* Collapsed sidebar width */
+  .sidebar.w-16 {
+    width: 4rem !important;
   }
   
   .main-content {
@@ -33,6 +61,13 @@ body {
     display: flex;
     flex-direction: column;
     overflow-x: hidden;
+    transition: margin-left 0.5s ease-in-out, width 0.5s ease-in-out;
+  }
+  
+  /* Main content adjustment for collapsed sidebar */
+  .dashboard-container.sidebar-collapsed .main-content {
+    margin-left: 4rem !important;
+    width: calc(100vw - 4rem) !important;
   }
   
   .content-wrapper {
@@ -40,6 +75,19 @@ body {
     padding: 2rem 1rem 1rem 1rem;
     max-width: 100%;
     overflow-x: hidden;
+  }
+  
+  /* Ensure proper spacing for dashboard content */
+  .content-wrapper .space-y-4 > * + * {
+    margin-top: 1rem;
+  }
+  
+  .content-wrapper .space-y-6 > * + * {
+    margin-top: 1.5rem;
+  }
+  
+  .content-wrapper .grid {
+    width: 100%;
   }
   
   /* Desktop sticky navigation */
@@ -59,7 +107,21 @@ body {
   }
   
   .content-wrapper {
-    padding: 0.5rem;
+    padding: 0.75rem;
+    padding-top: 0.5rem;
+  }
+  
+  /* Ensure mobile dashboard content has proper spacing */
+  .content-wrapper .space-y-4 > * + * {
+    margin-top: 1rem;
+  }
+  
+  .content-wrapper .space-y-6 > * + * {
+    margin-top: 1.5rem;
+  }
+  
+  .content-wrapper .grid {
+    width: 100%;
   }
   
   /* Mobile navbar - only stick when scrolling down */
@@ -115,6 +177,17 @@ body {
   /* Mobile sidebar overlay */
   .sidebar {
     z-index: 45 !important;
+    overflow: visible !important; /* Ensure tooltips are visible on mobile */
+  }
+  
+  /* Mobile collapsed sidebar improvements */
+  .sidebar.w-16 .sidebar-item {
+    min-height: 44px;
+    width: 100%;
+  }
+  
+  .sidebar.w-16 .sidebar-item svg {
+    flex-shrink: 0;
   }
   
   /* Mobile content spacing */
@@ -123,7 +196,7 @@ body {
   }
   
   .content-wrapper {
-    padding-top: 2rem;
+    padding-top: 0.5rem;
   }
   
   /* Mobile card adjustments - only for notes page */

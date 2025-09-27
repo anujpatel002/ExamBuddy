@@ -9,7 +9,9 @@
     "server": "nodemon --exec \"npx node --env-file=.env server.js\"",
     "dev": "nodemon server.js",
     "prod": "NODE_ENV=production node server.js",
-    "audit": "npm audit --audit-level=high"
+    "audit": "npm audit --audit-level=high",
+    "test:ads": "node test-ad-system.js",
+    "test:api": "node test-ad-api.js"
   },
   "author": "",
   "license": "ISC",
@@ -24,6 +26,7 @@
     "dotenv": "^16.6.1",
     "express": "^4.19.2",
     "express-async-handler": "^1.2.0",
+    "express-rate-limit": "^8.1.0",
     "express-validator": "^7.2.1",
     "groq-sdk": "^0.31.0",
     "jsdom": "^26.1.0",

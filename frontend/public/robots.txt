@@ -1,0 +1,54 @@
+# ExamBuddy - robots.txt for SEO optimization
+User-agent: *
+Allow: /
+
+# Allow important pages for SEO
+Allow: /dashboard
+Allow: /quiz
+Allow: /notes
+Allow: /study-room
+Allow: /subjects
+Allow: /pricing
+Allow: /blog
+Allow: /help
+Allow: /about
+
+# Block private/admin areas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /_next/
+Disallow: /profile/
+Disallow: /auth/
+Disallow: /verify-email/
+Disallow: /test-ads/
+
+# Block specific file types that shouldn't be indexed
+Disallow: *.json$
+Disallow: *.xml$
+Disallow: /temp/
+
+# Allow search engines to access important files
+Allow: /sitemap.xml
+Allow: /ads.txt
+Allow: /robots.txt
+
+# Sitemap location
+Sitemap: https://exambuddy.me/sitemap.xml
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1
+
+# Special instructions for different bots
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Twitterbot
+Allow: /

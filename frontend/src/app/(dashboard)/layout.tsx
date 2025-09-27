@@ -14,6 +14,7 @@ import { FiMail } from 'react-icons/fi';
 function DashboardContent({ children }: { children: ReactNode }) {
   const { user, loading, login, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const router = useRouter();
   
   const pathname = usePathname();
@@ -28,7 +29,7 @@ function DashboardContent({ children }: { children: ReactNode }) {
     if (!user) {
       router.push('/login');
     }
-  }, [user, loading]);
+  }, [user, loading, router]);
 
   if (loading || !user) {
     return (
@@ -54,11 +55,11 @@ function DashboardContent({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className={`dashboard-container min-h-screen transition-all duration-500 ${sidebarOpen ? 'sidebar-open' : ''}`} style={{background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'}}>
-      <Sidebar isOpen={sidebarOpen} />
+    <div className={`dashboard-container min-h-screen transition-all duration-500 ${sidebarOpen ? 'sidebar-open' : ''} ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`} style={{background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)'}}>
+      <Sidebar isOpen={sidebarOpen} onCollapsedChange={setSidebarCollapsed} />
       <div className="main-content">
         <Navbar toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-        <main className="content-wrapper pt-6">
+        <main className="content-wrapper pt-2">
           {children}
         </main>
       </div>

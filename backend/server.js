@@ -30,6 +30,7 @@ import healthRoutes from './routes/healthRoutes.js';
 import ocrRoutes from './routes/ocrRoutes.js';
 import pinnedQuestionsRoutes from './routes/pinnedQuestionsRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import adRewardRoutes from './routes/adRewardRoutes.js';
 import securityHeaders from './middleware/securityHeaders.js';
 import { validateInput, sanitizeQuery, limitRequestSize } from './middleware/securityMiddleware.js'; 
 
@@ -53,7 +54,7 @@ app.use(securityHeaders);
 // 2. CORS middleware must be next.
 const allowedOrigins = [
   'http://localhost:3000',
-  'http://192.168.1.18:3000',
+  'http://172.23.141.241:3000',
   'https://exambuddy-delta.vercel.app',
   'https://exambuddy.me'
 ];
@@ -85,7 +86,7 @@ const csrfProtection = (req, res, next) => {
   const origin = req.get('Origin') || req.get('Referer');
   const allowedOrigins = [
     'http://localhost:3000',
-    'http://192.168.1.18:3000', 
+    'http://172.23.141.241:3000', 
     'https://exambuddy-delta.vercel.app',
     'https://exambuddy.me'
   ];
@@ -125,6 +126,7 @@ app.use('/api/gamification', gamificationRoutes);
 app.use('/api/ocr', ocrRoutes);
 app.use('/api/pinned-questions', pinnedQuestionsRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/ads', adRewardRoutes);
 app.use('/api', healthRoutes);
 
 // --- Error Handling ---

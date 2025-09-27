@@ -1,0 +1,105 @@
+/* Collapsed Sidebar Tooltip Improvements */
+
+/* Ensure tooltips are always visible and properly styled */
+.sidebar .group .absolute {
+  pointer-events: none;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Dark theme tooltips */
+.dark .sidebar .group .absolute {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(75, 85, 99, 0.5);
+  color: #f8fafc;
+}
+
+/* Light theme tooltips */
+html:not(.dark) .sidebar .group .absolute {
+  background: rgba(248, 250, 252, 0.95);
+  border-color: rgba(203, 213, 225, 0.5);
+  color: #0f172a;
+}
+
+/* Arrow for tooltips */
+.sidebar .group .absolute::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 4px 4px 0;
+}
+
+/* Dark theme arrow */
+.dark .sidebar .group .absolute::before {
+  border-color: transparent rgba(30, 41, 59, 0.95) transparent transparent;
+}
+
+/* Light theme arrow */
+html:not(.dark) .sidebar .group .absolute::before {
+  border-color: transparent rgba(248, 250, 252, 0.95) transparent transparent;
+}
+
+/* Collapsed sidebar button hover effects */
+.sidebar.w-16 .sidebar-item:hover {
+  transform: scale(1.05);
+}
+
+/* Enhanced icon visibility when collapsed */
+.sidebar.w-16 .sidebar-item svg {
+  color: #94a3b8 !important; /* Default visible color */
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.sidebar.w-16 .sidebar-item:hover svg {
+  color: #3b82f6 !important; /* Blue on hover */
+}
+
+/* Ensure collapsed sidebar has proper spacing */
+.sidebar.w-16 {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebar.w-16 nav {
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+
+/* Active state for collapsed items */
+.sidebar.w-16 .sidebar-item.active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(147, 51, 234, 0.3));
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.sidebar.w-16 .sidebar-item.active svg {
+  color: #60a5fa !important; /* Bright blue for active state */
+}
+
+/* Ensure text is completely hidden when collapsed */
+.sidebar.w-16 .sidebar-item span {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Make sure icons are centered and visible */
+.sidebar.w-16 .sidebar-item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 48px;
+  width: 100%;
+  position: relative;
+}

@@ -11,6 +11,7 @@ import DeleteConfirmationModal from '@/components/ui/DeleteConfirmationModal';
 import EditModal from '@/components/ui/EditModal';
 import StreakWidget from '@/components/gamification/StreakWidget';
 import Leaderboard from '@/components/gamification/Leaderboard';
+import CreditStats from '@/components/ads/CreditStats';
 
 interface Subject {
   _id: string;
@@ -57,7 +58,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header Section */}
       <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-8 rounded-3xl shadow-lg">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-xl float"></div>
@@ -69,20 +70,23 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats & Gamification Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <StreakWidget />
         </div>
-        <div className="glass-card p-6 rounded-2xl">
-          <h3 className="font-semibold mb-4 theme-text-primary">Quick Stats</h3>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between items-center">
-              <span className="theme-text-secondary">Total Subjects:</span>
-              <span className="font-medium theme-text-primary">{subjects.length}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="theme-text-secondary">Plan:</span>
-              <span className="font-medium capitalize theme-text-primary">{user?.subscription?.plan || 'Free'}</span>
+        <div>
+          <CreditStats className="mb-6" />
+          <div className="glass-card p-6 rounded-2xl">
+            <h3 className="font-semibold mb-4 theme-text-primary">Quick Stats</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center">
+                <span className="theme-text-secondary">Total Subjects:</span>
+                <span className="font-medium theme-text-primary">{subjects.length}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="theme-text-secondary">Plan:</span>
+                <span className="font-medium capitalize theme-text-primary">{user?.subscription?.plan || 'Free'}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -168,12 +172,12 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Activity & Progress */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4">
           {/* Today's Progress */}
           <div className="glass-card p-8 rounded-3xl">
-            <h2 className="text-2xl font-bold mb-6 theme-text-primary">Today's Progress</h2>
+            <h2 className="text-2xl font-bold mb-6 theme-text-primary">Today&apos;s Progress</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="text-center p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-2xl shadow-lg transform hover:scale-105 transition-transform duration-300">
                 <div className="text-3xl font-bold mb-2">0</div>
@@ -260,12 +264,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Sidebar Section */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           <Leaderboard />
         </div>
       </div>
-
-
     </div>
   );
 }

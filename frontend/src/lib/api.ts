@@ -1,7 +1,11 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  // Use the environment variable, or a local default for development
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5002/api',
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
 // Interceptor to add the token to every request

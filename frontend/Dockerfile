@@ -9,9 +9,12 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# Set the backend API URL during build time
-ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
+# Create the .env.production file with the final URLs
+RUN echo "NEXT_PUBLIC_API_URL=https://exambuddy-backend-964834573050.asia-south1.run.app/api" > .env.production
+RUN echo "NEXT_PUBLIC_SOCKET_URL=https://exambuddy-backend-964834573050.asia-south1.run.app" >> .env.production
+
+# Run the build
 RUN npm run build
 
 # Production image

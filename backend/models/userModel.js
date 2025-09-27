@@ -45,6 +45,20 @@ const userSchema = mongoose.Schema(
       noteCount: { type: Number, default: 0 },
       customCredits: { type: Number, default: 0 }
     },
+    adRewards: {
+      totalAdsWatched: { type: Number, default: 0 },
+      dailyAdsWatched: { type: Number, default: 0 },
+      lastAdWatchDate: { type: Date, default: null },
+      creditsEarnedFromAds: { type: Number, default: 0 },
+      dailyAdLimit: { type: Number, default: 10 }, // Max 10 ads per day for free users
+      adWatchHistory: [{
+        watchedAt: { type: Date, default: Date.now },
+        creditsEarned: { type: Number, default: 1 },
+        adProvider: { type: String, default: 'google' },
+        adDuration: { type: Number, default: 30 }, // in seconds
+        completed: { type: Boolean, default: false }
+      }]
+    },
     gamification: {
       currentStreak: { type: Number, default: 0 },
       longestStreak: { type: Number, default: 0 },
